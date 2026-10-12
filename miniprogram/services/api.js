@@ -23,9 +23,13 @@ function gallery() { return wx.getStorageSync('persona-gallery-v1') || { favorit
 function saveGallery(data) { wx.setStorageSync('persona-gallery-v1',data); }
 module.exports = {
   backendEnabled: remote.enabled,
+  getMembership: () => remote.enabled ? remote.request('/api/membership','GET',{},true) : Promise.resolve({active:false,plans:config.memberships}),
+  getReferrals: () => remote.enabled ? remote.request('/api/referrals','GET',{},true) : Promise.resolve({code:'',count:0,availableCount:0,target:3,enabled:false,rebates:[],refundableOrders:[]}),
+  requestRebate: orderId => remote.enabled ? remote.request('/api/referrals/rebate','POST',{orderId},true) : Promise.reject(new Error('本地演示不执行真实退款')),
+  bindReferral: code => remote.enabled ? remote.request('/api/referrals/bind','POST',{code},true) : Promise.resolve({bound:false}),
   getCards: async (options = {}) => {
     if (remote.enabled) { const params=Object.keys(options).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(options[k])).join('&'); const result=await remote.request('/api/cards?'+params,'GET',{},!!options.favorites);result.items=result.items.map(c=>({...c,cover:c.cover?remote.base+c.cover:''}));return result; }
-    const data=gallery();let items=data.cards.filter(c=>c.published && (!options.category||c.category===options.category) && (!options.search||[c.name,c.tag,c.intro].join(' ').includes(options.search))).map(c=>({...c, favorite:data.favorites.includes(c.id),downloads:data.downloads.includes(c.id)?1:0,favorites:data.favorites.includes(c.id)?1:0}));
+    const data=gallery();let items=data.cards.filter(c=>c.published && (!options.relationship||(c.relationship||'BG')===options.relationship)&&(!options.category||c.category===options.category) && (!options.search||[c.name,c.tag,c.intro].join(' ').includes(options.search))).map(c=>({...c, favorite:data.favorites.includes(c.id),downloads:data.downloads.includes(c.id)?1:0,favorites:data.favorites.includes(c.id)?1:0}));
     if(options.favorites)items=items.filter(c=>c.favorite);if(options.sort==='hot')items.sort((a,b)=>(b.downloads*2+b.favorites)-(a.downloads*2+a.favorites));
     const page=Number(options.page)||0;return {items:items.slice(page*20,page*20+20),hasMore:items.length>(page+1)*20,categories:[...new Set(data.cards.filter(c=>c.published).map(c=>c.category))]};
   },
@@ -41,10 +45,11 @@ module.exports = {
     if (typeof options.requirements !== 'undefined' && (typeof options.requirements !== 'string' || options.requirements.length > 500)) return Promise.reject(new Error('具体要求最多500字'));
     if (!options.privateOrder && options.publicAcknowledged !== true) return Promise.reject(new Error('请确认普通定制成品默认公开说明'));
     if(remote.enabled) { const draft=loadDraft(id);if(!draft.requestId){draft.requestId='request-'+Date.now()+'-'+Math.random().toString(36).slice(2);saveDraft(id,draft);}return remote.request('/api/orders','POST',{packageId:id,answers,...options,requestId:draft.requestId},true).then(order=>{saveDraft(id,{orderId:order.id});return order;}); }
+    if(options.useMembership)return Promise.reject(new Error('本地演示没有真实会员额度'));
     const p = getPackage(id), data = read();
     const draft = data.drafts[id];
     if (draft && draft.orderId) return Promise.resolve(data.orders.find(o => o.id === draft.orderId));
-    const order = { id: 'DEMO-' + Date.now(), packageId: id, name: p.name, price: Number((p.price * (options.privateOrder ? config.privateMultiplier : 1)).toFixed(2)), privateOrder: !!options.privateOrder, publicAcknowledged: !!options.publicAcknowledged, requirements: (options.requirements || '').trim(), status: '待处理', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
+    const order = { id: 'DEMO-' + Date.now(), packageId: id, name: p.name, price: Number((p.price * (options.privateOrder ? config.privateMultiplier : 1)).toFixed(2)), relationship: options.relationship || 'BG', privateOrder: !!options.privateOrder, publicAcknowledged: !!options.publicAcknowledged, requirements: (options.requirements || '').trim(), status: '待处理', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
     data.orders.unshift(order); data.drafts[id] = { answers: order.answers, index: 0, privateOrder: order.privateOrder, requirements: order.requirements, publicAcknowledged: order.publicAcknowledged, orderId: order.id }; write(data); return Promise.resolve(order);
   },
   clearDraft: id => { const data = read(); delete data.drafts[id]; write(data); }
