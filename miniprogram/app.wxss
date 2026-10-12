@@ -1,2 +1,18 @@
-page { background: #f7f8fa; color: #172b4d; font-family: sans-serif; }
+page { background: #f8f5f1; color: #353b39; font-family: sans-serif; font-size: 28rpx; }
+.container { padding: 40rpx 32rpx 70rpx; }
+.eyebrow { color: #748a80; font-size: 23rpx; letter-spacing: 4rpx; }
+.title { display: block; font-size: 48rpx; font-weight: 600; margin: 18rpx 0; line-height: 1.4; }
+.subtitle, .muted { color: #7d827e; font-size: 25rpx; line-height: 1.8; }
+.card { background: #fffdf9; border: 1rpx solid #e9e4db; border-radius: 28rpx; padding: 32rpx; margin: 26rpx 0; box-shadow: 0 8rpx 32rpx #343c3605; }
+.section { font-size: 34rpx; font-weight: 600; line-height: 1.5; }
+.badge { display: inline-block; background: #edf2ed; color: #587566; border-radius: 12rpx; padding: 8rpx 16rpx; font-size: 23rpx; margin-bottom: 18rpx; }
+.price { font-size: 44rpx; color: #587566; margin: 24rpx 0; }
+button { font-size: 28rpx; border-radius: 18rpx; margin: 18rpx 0 0; line-height: 2.8; }
 button::after { border: none; }
+.primary { background: #607f70; color: white; }
+.secondary { background: #ecefe8; color: #486154; }
+button[disabled] { background: #e5e5df; color: #9a9d96; }
+.notice { padding: 24rpx; background: #f0e9df; border-radius: 18rpx; color: #84715b; font-size: 24rpx; line-height: 1.7; margin: 24rpx 0; }
+.row { display: flex; gap: 18rpx; align-items: center; justify-content: space-between; }
+.row button { flex: 1; }
+.error { color: #a6574b; margin: 20rpx 0; }

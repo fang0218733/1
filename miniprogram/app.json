@@ -1,13 +1,5 @@
 {
-  "pages": [
-    "pages/index/index"
-  ],
-  "window": {
-    "navigationBarTitleText": "我的小程序",
-    "navigationBarBackgroundColor": "#f7f8fa",
-    "navigationBarTextStyle": "black",
-    "backgroundColor": "#f7f8fa"
-  },
-  "style": "v2",
-  "sitemapLocation": "sitemap.json"
+  "pages": ["pages/index/index", "pages/questionnaire/index", "pages/summary/index", "pages/orders/index"],
+  "window": {"navigationBarTitleText": "知伴 · 人设定制", "navigationBarBackgroundColor": "#f8f5f1", "navigationBarTextStyle": "black", "backgroundColor": "#f8f5f1"},
+  "style": "v2", "sitemapLocation": "sitemap.json"
 }
