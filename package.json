@@ -1,0 +1,11 @@
+{
+  "name": "wechat-miniapp-starter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "check": "node scripts/check.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,9 @@
+<view class="container">
+  <view class="card">
+    <text class="eyebrow">从一个想法开始</text>
+    <text class="title">{{greeting}}</text>
+    <text class="description">这里将成为你的小程序首页。</text>
+    <button class="primary" bindtap="onTap">点一下试试</button>
+    <text class="hint" aria-live="polite">已经点击 {{count}} 次</text>
+  </view>
+</view>
