@@ -1,1 +1,1 @@
-module.exports = { currency: '¥', packages: [{ id: 'basic', name: '50题完整版', count: 50, price: 59, description: '从基础轮廓到相处边界，构建完整陪聊人设' }, { id: 'detailed', name: '100题精细版', count: 100, price: 99, description: '深入矛盾、情境反应与关系变化，描绘细腻人物' }] };
+module.exports = { privateMultiplier: 1.5, currency: '¥', packages: [{ id: 'basic', name: '50题完整版', count: 50, price: 8.8, description: '从基础轮廓到相处边界，构建完整陪聊人设' }, { id: 'detailed', name: '100题精细版', count: 100, price: 18.8, description: '深入矛盾、情境反应与关系变化，描绘细腻人物' }] };

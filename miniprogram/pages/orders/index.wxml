@@ -4,7 +4,7 @@
   <view class="filters"><button wx:for="{{filters}}" wx:key="*this" class="{{active === item ? 'primary' : 'secondary'}}" bindtap="select" data-status="{{item}}">{{item}}</button></view>
   <view class="card" wx:for="{{orders}}" wx:key="id">
     <view class="row"><view class="badge">演示 · {{item.status}}</view><text class="muted">¥{{item.price}}</text></view>
-    <view class="section">{{item.name}}</view><view class="muted">{{item.id}}</view><view class="muted">{{item.date}}</view>
+    <view class="section">{{item.name}}</view><view class="muted">{{item.privateOrder ? "私人定制 · 不公开" : "普通定制"}}</view><view wx:if="{{item.requirements}}" class="persona">具体要求：{{item.requirements}}</view><view class="muted">{{item.id}}</view><view class="muted">{{item.date}}</view>
     <view wx:if="{{item.card}}" class="persona" selectable="{{true}}">{{item.card}}</view>
     <button wx:if="{{item.card}}" class="primary" bindtap="copy" data-id="{{item.id}}">复制成品人设卡（演示）</button>
     <view wx:else class="muted">{{item.status === '待处理' ? '已收到本地答案，演示订单不会自动制作。' : '演示设计师正在细化人物与关系设定。'}}</view>

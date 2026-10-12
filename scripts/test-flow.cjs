@@ -25,6 +25,17 @@ async function main() {
     assert.equal(api.validAnswers(p.id, answers), false);
     assert.notDeepEqual(order.answers, answers);
   }
+  assert.equal(api.quote('basic', false), 8.8);
+  assert.equal(api.quote('basic', true), 13.2);
+  assert.equal(api.quote('detailed', true), 28.2);
+  api.clearDraft('detailed');
+  const privateAnswers = Object.fromEntries(api.getQuestions('detailed').map(q => [q.id, ['由设计师决定']]));
+  api.saveDraft('detailed', { answers: privateAnswers, index: 3, requirements: '少用昵称', privateOrder: true });
+  api.saveDraft('detailed', { answers: privateAnswers, index: 4 });
+  assert.equal(api.loadDraft('detailed').requirements, '少用昵称');
+  const privateOrder = await api.submitOrder('detailed', privateAnswers, { privateOrder: true, requirements: '少用昵称' });
+  assert.equal(privateOrder.price, 28.2); assert.equal(privateOrder.privateOrder, true); assert.equal(privateOrder.requirements, '少用昵称');
+  await assert.rejects(api.submitOrder('basic', {}, { requirements: '长'.repeat(501) }));
   const orders = await api.listOrders();
   for (const status of ['待处理', '制作中', '已完成']) assert.ok(orders.some(o => o.status === status));
   assert.ok(orders.find(o => o.status === '已完成').card.includes('演示'));
@@ -45,6 +56,13 @@ async function main() {
   assert.equal(JSON.stringify(page.answers[page.data.question.id]), JSON.stringify(['由设计师决定']));
   page.choose({ currentTarget: { dataset: { value: page.data.question.options[0] } } });
   assert.equal(page.answers[page.data.question.id].includes('由设计师决定'), false);
-  console.log('通过：50/100题完整性、答案校验、草稿恢复、单/多选、设计师选项互斥、提交快照与去重、三种订单状态。');
+  page.setData({ index: 20 }); page.render(); page.skip();
+  assert.equal(page.data.index, 21);
+  assert.equal(page.answers.q21[0], '由设计师决定');
+  global.wx.showModal = options => options.success({ confirm: true });
+  global.wx.navigateTo = () => {};
+  page.skipRest();
+  assert.equal(api.validAnswers('basic', page.answers), true);
+  console.log('通过：价格倍率、私人订单、选填要求保存、跳题与跳过剩余、50/100题完整性、答案校验、草稿恢复、单/多选、设计师选项互斥、提交快照与去重、三种订单状态。');
 }
 main().catch(err => { console.error(err); process.exitCode = 1; });

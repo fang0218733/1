@@ -9,6 +9,8 @@
   </view>
   <view class="error" wx:if="{{error}}">{{error}}</view>
   <view class="row"><button class="secondary" bindtap="prev" disabled="{{index === 0}}">上一题</button><button class="primary" bindtap="next" disabled="{{!selected}}">{{index === total - 1 ? '查看汇总' : '下一题'}}</button></view>
+  <button class="secondary" bindtap="skip" wx:if="{{question.id}}">跳过本题 · 由设计师决定</button>
+  <button class="text-button" bindtap="skipRest" wx:if="{{question.id}}">剩余未答题交给设计师</button>
   <button class="secondary" bindtap="summary" wx:if="{{question.id}}">答案汇总 / 跳转修改</button>
   <view class="muted">每次选择自动保存至本机。可随时返回，继续时恢复位置。</view>
 </view>

@@ -3,6 +3,16 @@
   <text class="title">让每一种陪伴，都有专属的温度</text>
   <view class="subtitle">只需选择，无需填写。把你期待的性格、相处方式和故事，交给设计师细细描绘。</view>
   <view class="notice">第一阶段演示 · 本地保存 · 不收款 · 当前不调用 DeepSeek，不提供真实制作与交付。</view>
+  <view class="section">免费角色卡 <text class="muted">FREE COLLECTION</text></view>
+  <view class="subtitle">先遇见一个喜欢的角色。免费查看并复制，用于你的陪聊设定。</view>
+  <view class="card free-card" wx:for="{{freeCards}}" wx:key="id">
+    <view class="avatar">{{item.symbol}}</view><view class="badge">免费 · {{item.tag}}</view>
+    <view class="section">{{item.name}}</view><view class="subtitle">{{item.intro}}</view>
+    <button class="secondary" bindtap="viewCard" data-id="{{item.id}}">查看角色卡</button>
+  </view>
+  <view class="card" wx:if="{{activeCard}}"><view class="section">{{activeCard.name}} · 免费人设卡</view><view class="card-content">{{activeCard.card}}</view><button class="primary" bindtap="copyCard">免费复制角色卡</button><button class="text-button" bindtap="closeCard">收起</button></view>
+  <view class="section">专属定制 <text class="muted">MADE FOR YOU</text></view>
+  <view class="subtitle">50题 ¥{{packages[0].price}} / 100题 ¥{{packages[1].price}}。私人不公开定制按基础价的1.5倍计算，可在提交前选择。</view>
   <view class="card" wx:for="{{packages}}" wx:key="id">
     <view class="badge">{{item.count}} 个选择，描绘你的理想角色</view>
     <view class="section">{{item.name}}</view>
