@@ -1,8 +1,8 @@
 <view class="container">
-  <text class="eyebrow">DEEPSEEK · 陪聊人设定制</text>
-  <text class="title">让每一种陪伴，都有专属的温度</text>
-  <view class="subtitle">只需选择，无需填写。把你期待的性格、相处方式和故事，交给设计师细细描绘。</view>
-  <view class="notice">{{backendEnabled ? "云端申请 · 暂不收费 · 自动生成后人工审核交付" : "本地演示 · 不收款 · 下载人数与收藏仅为本机统计"}}</view>
+  <text class="eyebrow">知伴 · 免费角色大厅</text>
+  <text class="title">遇见你喜欢的角色</text>
+  <view class="subtitle">浏览免费人设，收藏喜欢的角色，复制或下载开启故事。</view>
+  <view class="notice">{{backendEnabled ? "免费角色大厅 · 自由浏览与下载" : "本地演示 · 不收款 · 下载人数与收藏仅为本机统计"}}</view>
   <view class="section">免费角色卡 <text class="muted">FREE COLLECTION</text></view>
   <view class="subtitle">先遇见一个喜欢的角色。免费查看并复制，用于你的陪聊设定。</view>
   <input class="search" placeholder="搜索角色名称、标签或简介" value="{{search}}" bindinput="search" />
@@ -18,16 +18,5 @@
   <view class="card" wx:if="{{activeCard}}"><view class="section">{{activeCard.name}} · 免费人设卡</view><view class="card-content">{{activeCard.card}}</view><button class="primary" bindtap="copyCard">免费复制角色卡</button><button class="secondary" bindtap="download">下载人设文本文件</button><button class="text-button" bindtap="closeCard">收起</button></view>
 <view wx:if="{{loading}}" class="muted">正在载入角色…</view>
   <view wx:if="{{hasMore}}" class="muted">继续向下滚动加载更多</view>
-  <view class="section">专属定制 <text class="muted">MADE FOR YOU</text></view>
-  <view class="subtitle">50题 ¥{{packages[0].price}} / 100题 ¥{{packages[1].price}}。私人不公开定制按基础价的1.5倍计算，可在提交前选择。</view>
-  <view class="card" wx:for="{{packages}}" wx:key="id">
-    <view class="badge">{{item.count}} 个选择，描绘你的理想角色</view>
-    <view class="section">{{item.name}}</view>
-    <view class="subtitle">{{item.description}}</view>
-    <view class="price">¥{{item.price}} <text class="muted">配置参考价 · 演示不支付</text></view>
-    <button class="primary" bindtap="begin" data-id="{{item.id}}">开始 / 继续定制</button>
-  </view>
   <view class="error" wx:if="{{error}}">{{error}}</view>
-  <button class="secondary" bindtap="orders">我的定制申请 / 订单</button>
-  <view class="muted">{{backendEnabled ? "草稿保存在本机，提交后申请保存在服务器；普通成品默认公开，私人不公开。" : "草稿与订单仅保存在本机，清除缓存后丢失。"}}每题均可交由设计师决定。</view>
 </view>

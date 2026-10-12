@@ -5,5 +5,5 @@ Page({
   select(e) { this.setData({ active: e.currentTarget.dataset.status }); this.filter(); },
   filter() { this.setData({ orders: (this.all || []).filter(o => this.data.active === '全部' || o.status === this.data.active) }); },
   copy(e) { const order = (this.all || []).find(o => o.id === e.currentTarget.dataset.id); if (!order || !order.card) return; wx.setClipboardData({ data: order.card, success: () => wx.showToast({ title: '人设卡已复制' }), fail: () => wx.showToast({ title: '复制失败，请重试', icon: 'none' }) }); },
-  home() { wx.reLaunch({ url: '/pages/index/index' }); }
+  home() { wx.switchTab({ url: '/pages/customize/index' }); }
 });

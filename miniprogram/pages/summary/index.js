@@ -16,7 +16,7 @@ Page({
     if (!this.data.privateOrder && !this.data.publicAcknowledged) { this.setData({ error: '请先确认普通定制成品默认公开说明，或选择私人定制' }); return; }
     wx.showModal({ title: this.data.backendEnabled ? '确认提交定制申请' : '确认提交演示订单', content: '套餐：' + this.data.package.name + '，' + (this.data.privateOrder ? '私人定制不公开' : '普通定制') + '，参考价 ¥' + this.data.price + (this.data.backendEnabled ? '。暂不收费；问卷及具体要求将保存至服务端，并用于DeepSeek生成草稿，由管理员审核交付。普通成品审核后默认公开，私人不公开。确认提交？' : '。仅本地演示不支付；普通成品默认公开，私人不公开。确认保存？'), confirmText: '确认提交', success: result => {
       if (!result.confirm) return; this.setData({ busy: true, error: '' });
-      Promise.resolve().then(() => api.submitOrder(this.id, this.answers, { requirements: this.data.requirements, privateOrder: this.data.privateOrder, publicAcknowledged: this.data.publicAcknowledged })).then(() => { this.setData({ submitted: true }); wx.redirectTo({ url: '/pages/orders/index' }); }).catch(err => this.setData({ error: '提交失败：' + err.message })).finally(() => this.setData({ busy: false }));
+      Promise.resolve().then(() => api.submitOrder(this.id, this.answers, { requirements: this.data.requirements, privateOrder: this.data.privateOrder, publicAcknowledged: this.data.publicAcknowledged })).then(() => { this.setData({ submitted: true }); wx.switchTab({ url: '/pages/orders/index' }); }).catch(err => this.setData({ error: '提交失败：' + err.message })).finally(() => this.setData({ busy: false }));
     } });
   }
 });

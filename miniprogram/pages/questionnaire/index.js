@@ -2,7 +2,7 @@ const api = require('../../services/api');
 Page({
   data: { index: 0, total: 0, answered: 0, progress: 0, question: {}, choices: [], selected: false, error: '' },
   onLoad(options) {
-    try { this.id = options.package; this.questions = api.getQuestions(this.id); const draft = api.loadDraft(this.id); if (draft.orderId) { wx.redirectTo({ url: '/pages/orders/index' }); return; } this.answers = draft.answers; this.setData({ index: Math.max(0, Math.min(Number(options.index === undefined ? draft.index : options.index) || 0, this.questions.length - 1)), total: this.questions.length }); this.render(); }
+    try { this.id = options.package; this.questions = api.getQuestions(this.id); const draft = api.loadDraft(this.id); if (draft.orderId) { wx.switchTab({ url: '/pages/orders/index' }); return; } this.answers = draft.answers; this.setData({ index: Math.max(0, Math.min(Number(options.index === undefined ? draft.index : options.index) || 0, this.questions.length - 1)), total: this.questions.length }); this.render(); }
     catch (err) { this.setData({ error: '无法载入题库或本地答案，请返回套餐首页重试' }); }
   },
   render() {
