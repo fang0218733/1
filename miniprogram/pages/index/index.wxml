@@ -9,7 +9,7 @@
   <scroll-view scroll-x class="category-strip"><button class="chip {{!category ? 'selected' : ''}}" bindtap="category" data-category="">全部</button><button wx:for="{{categories}}" wx:key="*this" class="chip {{category === item ? 'selected' : ''}}" bindtap="category" data-category="{{item}}">{{item}}</button></scroll-view>
   <view class="row"><button class="{{sort === 'new' ? 'primary' : 'secondary'}}" bindtap="sort" data-sort="new">最新上架</button><button class="{{sort === 'hot' ? 'primary' : 'secondary'}}" bindtap="sort" data-sort="hot">热度排行</button><button class="{{favorites ? 'primary' : 'secondary'}}" bindtap="favorites">我的收藏</button></view>
   <view class="muted">热度按下载人数×2＋收藏数排序；同一用户重复下载只计一次。</view>
-  <view wx:if="{{!freeCards.length &amp;&amp; !loading}}" class="card muted">暂无匹配角色，试试其他分类或关键词。</view>
+  <view wx:if="{{loading ? false : freeCards.length === 0}}" class="card muted">暂无匹配角色，试试其他分类或关键词。</view>
   <view class="card free-card" wx:for="{{freeCards}}" wx:key="id">
     <image wx:if="{{item.cover}}" class="cover" src="{{item.cover}}" mode="aspectFill" /><view wx:else class="avatar">{{item.symbol}}</view><view class="badge">免费 · {{item.tag}}</view>
     <view class="section">{{item.name}}</view><view class="subtitle">{{item.intro}}</view>

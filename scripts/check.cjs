@@ -10,6 +10,12 @@ function walk(dir) {
 }
 const source = path.join(root, 'miniprogram');
 for (const file of [...walk(source), path.join(root, 'project.config.json'), path.join(root, 'package.json')]) {
+  if (file.endsWith('.wxml')) {
+    const template = fs.readFileSync(file, 'utf8');
+    for (const match of template.matchAll(/\{\{([\s\S]*?)\}\}/g)) {
+      if (/&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);/i.test(match[1])) throw new Error('WXML 表达式不能使用 HTML 实体编码: ' + path.relative(root, file));
+    }
+  }
   if (file.endsWith('.json')) JSON.parse(fs.readFileSync(file, 'utf8'));
   if (file.endsWith('.js')) execFileSync(process.execPath, ['--check', file], { stdio: 'inherit' });
 }
