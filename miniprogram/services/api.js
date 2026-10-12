@@ -11,7 +11,7 @@ function validAnswers(id, answers) {
   return getQuestions(id).every(q => Array.isArray(answers[q.id]) && answers[q.id].length > 0 && answers[q.id].every(v => q.options.includes(v)) && (q.multiple || answers[q.id].length === 1) && (!answers[q.id].includes('由设计师决定') || answers[q.id].length === 1));
 }
 function loadDraft(id) { getPackage(id); return read().drafts[id] || { answers: {}, index: 0 }; }
-function saveDraft(id, draft) { getPackage(id); const data = read(); data.drafts[id] = draft; write(data); }
+function saveDraft(id, draft) { getPackage(id); const data = read(); data.drafts[id] = Object.assign({}, data.drafts[id] || {}, draft); write(data); }
 function seedOrders() {
   const data = read(); if (data.seeded) return;
   const card = '【演示成品 · 林知秋】\n定位：温柔慢热的成年创意工作者。\n外貌：简约穿搭，笑意柔和。\n性格：细腻、真诚，偶尔过度思考。\n关系：从朋友开始，缓慢建立信任。\n表达：温柔简洁，先倾听，再征求建议许可。\n边界：尊重独处与拒绝，不控制、不羞辱。\n剧情：散步、书店与日常成长。\n用途：DeepSeek 陪聊人设参考，示例内容不代表真实交付。';
@@ -20,17 +20,19 @@ function seedOrders() {
 }
 module.exports = {
   getPackage, getQuestions, loadDraft, saveDraft, validAnswers,
+  quote: (id, privateOrder) => Number((getPackage(id).price * (privateOrder ? config.privateMultiplier : 1)).toFixed(2)),
   getPackages: () => Promise.resolve(config.packages),
   // No login, payment or external AI calls in phase one.
   getIdentity: () => Promise.resolve({ mode: 'local-demo', authenticated: false }),
   listOrders: () => { seedOrders(); return Promise.resolve(read().orders); },
-  submitOrder: (id, answers) => {
+  submitOrder: (id, answers, options = {}) => {
     if (!validAnswers(id, answers)) return Promise.reject(new Error('请完成所有题目'));
+    if (typeof options.requirements !== 'undefined' && (typeof options.requirements !== 'string' || options.requirements.length > 500)) return Promise.reject(new Error('具体要求最多500字'));
     const p = getPackage(id), data = read();
     const draft = data.drafts[id];
     if (draft && draft.orderId) return Promise.resolve(data.orders.find(o => o.id === draft.orderId));
-    const order = { id: 'DEMO-' + Date.now(), packageId: id, name: p.name, price: p.price, status: '待处理', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
-    data.orders.unshift(order); data.drafts[id] = { answers: order.answers, index: 0, orderId: order.id }; write(data); return Promise.resolve(order);
+    const order = { id: 'DEMO-' + Date.now(), packageId: id, name: p.name, price: Number((p.price * (options.privateOrder ? config.privateMultiplier : 1)).toFixed(2)), privateOrder: !!options.privateOrder, requirements: (options.requirements || '').trim(), status: '待处理', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
+    data.orders.unshift(order); data.drafts[id] = { answers: order.answers, index: 0, privateOrder: order.privateOrder, requirements: order.requirements, orderId: order.id }; write(data); return Promise.resolve(order);
   },
   clearDraft: id => { const data = read(); delete data.drafts[id]; write(data); }
 };

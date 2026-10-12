@@ -1,6 +1,7 @@
+const freeCards = require('../../data/free-cards');
 const api = require('../../services/api');
 Page({
-  data: { packages: [], error: '' },
+  data: { packages: [], freeCards, activeCard: null, error: '' },
   onLoad() { api.getPackages().then(packages => this.setData({ packages })); },
   begin(e) {
     const id = e.currentTarget.dataset.id;
@@ -11,5 +12,8 @@ Page({
       } else wx.navigateTo({ url: '/pages/questionnaire/index?package=' + id });
     } catch (err) { this.setData({ error: '无法读取本地数据，请检查存储空间' }); }
   },
+  viewCard(e) { this.setData({ activeCard: freeCards.find(c => c.id === e.currentTarget.dataset.id) }); },
+  closeCard() { this.setData({ activeCard: null }); },
+  copyCard() { if (!this.data.activeCard) return; wx.setClipboardData({ data: this.data.activeCard.card, fail: () => wx.showToast({ title: '复制失败，请重试', icon: 'none' }) }); },
   orders() { wx.navigateTo({ url: '/pages/orders/index' }); }
 });

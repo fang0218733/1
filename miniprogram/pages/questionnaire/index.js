@@ -20,5 +20,7 @@ Page({
   },
   prev() { if (this.data.index > 0) { this.setData({ index: this.data.index - 1 }); this.render(); this.persist(); } },
   next() { if (!this.data.selected || !this.persist()) return; if (this.data.index < this.data.total - 1) { this.setData({ index: this.data.index + 1 }); this.render(); this.persist(); } else this.summary(); },
+  skip() { this.answers[this.data.question.id] = ['由设计师决定']; this.render(); this.next(); },
+  skipRest() { wx.showModal({ title: '剩余题目交给设计师？', content: '保留已选答案，所有未答题按“由设计师决定”处理。提交前仍可修改。', success: res => { if (!res.confirm) return; this.questions.forEach(q => { if (!(this.answers[q.id] || []).length) this.answers[q.id] = ['由设计师决定']; }); this.render(); this.summary(); } }); },
   summary() { if (this.persist()) wx.navigateTo({ url: '/pages/summary/index?package=' + this.id }); }
 });
