@@ -6,3 +6,4 @@ project.private.config.json
 miniprogram/project.private.config.json
 .DS_Store
 *.log
+server/data/

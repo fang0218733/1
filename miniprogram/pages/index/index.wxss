@@ -1,3 +1,8 @@
 .free-card { position: relative; padding-right: 30rpx; }
 .avatar { width: 90rpx; height: 90rpx; border-radius: 50%; background: linear-gradient(140deg,#e7cdb1,#dce7d7); color: #637a65; font-size: 42rpx; line-height: 90rpx; text-align: center; margin-bottom: 22rpx; }
 .card-content { line-height: 1.9; color: #607060; padding-top: 20rpx; }
+.search { background: #fffdf9; border: 1rpx solid #dedfd5; padding: 24rpx; border-radius: 20rpx; margin-top: 28rpx; }
+.category-strip { white-space: nowrap; margin: 18rpx 0; width: 100%; }
+.chip { display: inline-block; font-size: 24rpx; background: #eceee7; color: #667d6b; padding: 0 26rpx; margin-right: 12rpx; }
+.chip.selected { background: #607f70; color: white; }
+.cover { width: 100%; height: 300rpx; border-radius: 18rpx; margin-bottom: 20rpx; }

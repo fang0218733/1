@@ -1,14 +1,14 @@
 <view class="container">
   <text class="eyebrow">我的定制</text><text class="title">陪伴的诞生记录</text>
-  <view class="notice">全部为演示订单，不收款、不实际制作。制作中与已完成记录为预置样例；新提交订单保持待处理。</view>
+  <view class="notice">{{backendEnabled ? "云端定制申请 · 暂不收费 · 成品经管理员审核后交付。" : "本地演示，不收款；制作中与已完成记录为样例。"}}</view>
   <view class="filters"><button wx:for="{{filters}}" wx:key="*this" class="{{active === item ? 'primary' : 'secondary'}}" bindtap="select" data-status="{{item}}">{{item}}</button></view>
   <view class="card" wx:for="{{orders}}" wx:key="id">
-    <view class="row"><view class="badge">演示 · {{item.status}}</view><text class="muted">¥{{item.price}}</text></view>
+    <view class="row"><view class="badge">{{item.demo ? "演示 · " : ""}}{{item.status}}</view><text class="muted">¥{{item.price}}</text></view>
     <view class="section">{{item.name}}</view><view class="muted">{{item.privateOrder ? "私人定制 · 不公开" : "普通定制"}}</view><view wx:if="{{item.requirements}}" class="persona">具体要求：{{item.requirements}}</view><view class="muted">{{item.id}}</view><view class="muted">{{item.date}}</view>
     <view wx:if="{{item.card}}" class="persona" selectable="{{true}}">{{item.card}}</view>
-    <button wx:if="{{item.card}}" class="primary" bindtap="copy" data-id="{{item.id}}">复制成品人设卡（演示）</button>
-    <view wx:else class="muted">{{item.status === '待处理' ? '已收到本地答案，演示订单不会自动制作。' : '演示设计师正在细化人物与关系设定。'}}</view>
+    <button wx:if="{{item.card}}" class="primary" bindtap="copy" data-id="{{item.id}}">复制成品人设卡</button>
+    <view wx:else class="muted">{{item.status === '待处理' ? '已收到本地答案，等待管理员处理。' : '正在生成或审核人设，完成后可在这里查看。'}}</view>
   </view>
   <view wx:if="{{!orders.length}}" class="card muted">暂无此状态订单，去描绘你的专属角色吧。</view>
-  <view class="error" wx:if="{{error}}">{{error}}</view><button class="secondary" bindtap="home">返回套餐首页</button>
+  <view class="error" wx:if="{{error}}">{{error}}</view><button class="secondary" bindtap="home">前往专属定制</button>
 </view>

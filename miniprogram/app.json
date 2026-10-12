@@ -1,5 +1,37 @@
 {
-  "pages": ["pages/index/index", "pages/questionnaire/index", "pages/summary/index", "pages/orders/index"],
-  "window": {"navigationBarTitleText": "知伴 · 人设定制", "navigationBarBackgroundColor": "#f8f5f1", "navigationBarTextStyle": "black", "backgroundColor": "#f8f5f1"},
-  "style": "v2", "sitemapLocation": "sitemap.json"
+  "pages": [
+    "pages/index/index",
+    "pages/customize/index",
+    "pages/questionnaire/index",
+    "pages/summary/index",
+    "pages/orders/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "知伴 · 人设定制",
+    "navigationBarBackgroundColor": "#f8f5f1",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f8f5f1"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "tabBar": {
+    "color": "#7d827e",
+    "selectedColor": "#486154",
+    "backgroundColor": "#fffdf9",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "免费大厅"
+      },
+      {
+        "pagePath": "pages/customize/index",
+        "text": "专属定制"
+      },
+      {
+        "pagePath": "pages/orders/index",
+        "text": "我的订单"
+      }
+    ]
+  }
 }

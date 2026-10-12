@@ -1,0 +1,7 @@
+# Replace YOUR_DOMAIN with an owned domain pointing at this host.
+YOUR_DOMAIN {
+    request_body {
+        max_size 3MB
+    }
+    reverse_proxy 127.0.0.1:8080
+}

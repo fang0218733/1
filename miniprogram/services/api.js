@@ -1,5 +1,6 @@
-// Promise-based contract: replace this local adapter with authenticated backend requests.
-// Future backend must validate package/version, answers, pricing and ownership server-side.
+// Local demo adapter with authenticated remote service routing. Server validates ownership, answers and pricing.
+const remote = require('./remote');
+const freeCards = require('../data/free-cards');
 const config = require('../data/config');
 const banks = require('../data/questions');
 const KEY = 'persona-demo-v1';
@@ -18,21 +19,33 @@ function seedOrders() {
   data.orders = [{ id: 'DEMO-COMPLETE', packageId: 'basic', name: '50题完整版', price: config.packages[0].price, status: '已完成', date: '演示样例', demo: true, card }, { id: 'DEMO-WORKING', packageId: 'detailed', name: '100题精细版', price: config.packages[1].price, status: '制作中', date: '演示样例', demo: true, card: '' }].concat(data.orders);
   data.seeded = true; write(data);
 }
+function gallery() { return wx.getStorageSync('persona-gallery-v1') || { favorites: [], downloads: [], cards: freeCards.map((c,i) => ({ ...c, category: ['治愈','活泼','沉稳'][i], cover: '', published: true })) }; }
+function saveGallery(data) { wx.setStorageSync('persona-gallery-v1',data); }
 module.exports = {
+  backendEnabled: remote.enabled,
+  getCards: async (options = {}) => {
+    if (remote.enabled) { const params=Object.keys(options).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(options[k])).join('&'); const result=await remote.request('/api/cards?'+params,'GET',{},!!options.favorites);result.items=result.items.map(c=>({...c,cover:c.cover?remote.base+c.cover:''}));return result; }
+    const data=gallery();let items=data.cards.filter(c=>c.published && (!options.category||c.category===options.category) && (!options.search||[c.name,c.tag,c.intro].join(' ').includes(options.search))).map(c=>({...c, favorite:data.favorites.includes(c.id),downloads:data.downloads.includes(c.id)?1:0,favorites:data.favorites.includes(c.id)?1:0}));
+    if(options.favorites)items=items.filter(c=>c.favorite);if(options.sort==='hot')items.sort((a,b)=>(b.downloads*2+b.favorites)-(a.downloads*2+a.favorites));
+    const page=Number(options.page)||0;return {items:items.slice(page*20,page*20+20),hasMore:items.length>(page+1)*20,categories:[...new Set(data.cards.filter(c=>c.published).map(c=>c.category))]};
+  },
+  favoriteCard: async (id,enabled) => { if(remote.enabled)return remote.request('/api/cards/'+id+'/favorite','POST',{enabled},true);const data=gallery();data.favorites=data.favorites.filter(x=>x!==id);if(enabled)data.favorites.push(id);saveGallery(data);return {favorite:enabled}; },
+  downloadCard: async id => { if(remote.enabled)return remote.request('/api/cards/'+id+'/download','POST',{},true);const data=gallery();const c=data.cards.find(c=>c.id===id&&c.published);if(!c)throw new Error('角色已下架');if(!data.downloads.includes(id))data.downloads.push(id);saveGallery(data);return {card:c.card,downloads:1}; },
   getPackage, getQuestions, loadDraft, saveDraft, validAnswers,
   quote: (id, privateOrder) => Number((getPackage(id).price * (privateOrder ? config.privateMultiplier : 1)).toFixed(2)),
-  getPackages: () => Promise.resolve(config.packages),
-  // No login, payment or external AI calls in phase one.
-  getIdentity: () => Promise.resolve({ mode: 'local-demo', authenticated: false }),
-  listOrders: () => { seedOrders(); return Promise.resolve(read().orders); },
+  getPackages: () => remote.enabled ? remote.request('/api/config').then(c=>c.packages) : Promise.resolve(config.packages),
+  getIdentity: () => Promise.resolve({ mode: remote.enabled ? 'server' : 'local-demo', authenticated: remote.enabled && !!wx.getStorageSync('persona-session') }),
+  listOrders: () => { if(remote.enabled)return remote.request('/api/orders','GET',{},true);seedOrders(); return Promise.resolve(read().orders); },
   submitOrder: (id, answers, options = {}) => {
     if (!validAnswers(id, answers)) return Promise.reject(new Error('请完成所有题目'));
     if (typeof options.requirements !== 'undefined' && (typeof options.requirements !== 'string' || options.requirements.length > 500)) return Promise.reject(new Error('具体要求最多500字'));
+    if (!options.privateOrder && options.publicAcknowledged !== true) return Promise.reject(new Error('请确认普通定制成品默认公开说明'));
+    if(remote.enabled) { const draft=loadDraft(id);if(!draft.requestId){draft.requestId='request-'+Date.now()+'-'+Math.random().toString(36).slice(2);saveDraft(id,draft);}return remote.request('/api/orders','POST',{packageId:id,answers,...options,requestId:draft.requestId},true).then(order=>{saveDraft(id,{orderId:order.id});return order;}); }
     const p = getPackage(id), data = read();
     const draft = data.drafts[id];
     if (draft && draft.orderId) return Promise.resolve(data.orders.find(o => o.id === draft.orderId));
-    const order = { id: 'DEMO-' + Date.now(), packageId: id, name: p.name, price: Number((p.price * (options.privateOrder ? config.privateMultiplier : 1)).toFixed(2)), privateOrder: !!options.privateOrder, requirements: (options.requirements || '').trim(), status: '待处理', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
-    data.orders.unshift(order); data.drafts[id] = { answers: order.answers, index: 0, privateOrder: order.privateOrder, requirements: order.requirements, orderId: order.id }; write(data); return Promise.resolve(order);
+    const order = { id: 'DEMO-' + Date.now(), packageId: id, name: p.name, price: Number((p.price * (options.privateOrder ? config.privateMultiplier : 1)).toFixed(2)), privateOrder: !!options.privateOrder, publicAcknowledged: !!options.publicAcknowledged, requirements: (options.requirements || '').trim(), status: '待处理', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
+    data.orders.unshift(order); data.drafts[id] = { answers: order.answers, index: 0, privateOrder: order.privateOrder, requirements: order.requirements, publicAcknowledged: order.publicAcknowledged, orderId: order.id }; write(data); return Promise.resolve(order);
   },
   clearDraft: id => { const data = read(); delete data.drafts[id]; write(data); }
 };

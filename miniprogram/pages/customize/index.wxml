@@ -1,0 +1,17 @@
+<view class="container">
+  <text class="eyebrow">知伴 · 专属定制</text><text class="title">把理想的陪伴，细细描绘</text>
+  <view class="subtitle">选择你的偏好，描绘专属角色。没想好的题目可跳过，交由设计师决定；最后也可补充具体要求。</view>
+  <view class="notice">{{backendEnabled ? '云端申请 · 暂不收费 · 生成后人工审核交付' : '本地演示 · 不收款 · 草稿自动保存至本机'}}</view>
+  <view class="section">专属定制 <text class="muted">MADE FOR YOU</text></view>
+  <view class="subtitle">50题 ¥{{packages[0].price}} / 100题 ¥{{packages[1].price}}。私人不公开定制按基础价的1.5倍计算，可在提交前选择。</view>
+  <view class="card" wx:for="{{packages}}" wx:key="id">
+    <view class="badge">{{item.count}} 个选择，描绘你的理想角色</view>
+    <view class="section">{{item.name}}</view>
+    <view class="subtitle">{{item.description}}</view>
+    <view class="price">¥{{item.price}} <text class="muted">配置参考价 · 演示不支付</text></view>
+    <button class="primary" bindtap="begin" data-id="{{item.id}}">开始 / 继续定制</button>
+  </view>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+  <button class="secondary" bindtap="orders">查看我的定制订单</button>
+  <view class="notice">普通成品审核后默认公开，提交前会明确确认；私人定制始终不公开。当前价格仅供参考，不实际收款。</view>
+</view>

@@ -2,8 +2,8 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const vm = require('node:vm');
-let stored;
-global.wx = { getStorageSync: () => stored && JSON.parse(JSON.stringify(stored)), setStorageSync: (key, data) => { stored = JSON.parse(JSON.stringify(data)); } };
+const stored = new Map();
+global.wx = { getStorageSync: key => stored.has(key) ? JSON.parse(JSON.stringify(stored.get(key))) : undefined, setStorageSync: (key, data) => { stored.set(key, JSON.parse(JSON.stringify(data))); } };
 const api = require('../miniprogram/services/api');
 const config = require('../miniprogram/data/config');
 async function main() {
@@ -18,13 +18,21 @@ async function main() {
     await assert.rejects(api.submitOrder(p.id, {}));
     api.saveDraft(p.id, { answers, index: 12 });
     assert.deepEqual(api.loadDraft(p.id), { answers, index: 12 });
-    const order = await api.submitOrder(p.id, answers);
+    const order = await api.submitOrder(p.id, answers, { publicAcknowledged: true });
     assert.equal(order.status, '待处理'); assert.equal(order.demo, true); assert.equal(order.price, p.price);
-    assert.equal((await api.submitOrder(p.id, answers)).id, order.id);
+    assert.equal((await api.submitOrder(p.id, answers, { publicAcknowledged: true })).id, order.id);
     answers[questions[0].id] = ['非法答案'];
     assert.equal(api.validAnswers(p.id, answers), false);
     assert.notDeepEqual(order.answers, answers);
   }
+  assert.equal((await api.getCards()).items.length,3);
+  assert.equal((await api.getCards({search:'林知秋'})).items.length,1);
+  assert.equal((await api.getCards({category:'不存在'})).items.length,0);
+  await api.favoriteCard('lin',true);await api.favoriteCard('lin',true);
+  assert.equal((await api.getCards({favorites:true})).items.length,1);
+  await api.downloadCard('lin');await api.downloadCard('lin');
+  assert.equal((await api.getCards()).items.find(c=>c.id==='lin').downloads,1);
+  await api.favoriteCard('lin',false);assert.equal((await api.getCards({favorites:true})).items.length,0);
   assert.equal(api.quote('basic', false), 8.8);
   assert.equal(api.quote('basic', true), 13.2);
   assert.equal(api.quote('detailed', true), 28.2);
