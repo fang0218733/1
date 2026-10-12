@@ -9,8 +9,9 @@
     <view class="section">{{item.name}}</view>
     <view class="subtitle">{{item.description}}</view><view class="deliverables"><text wx:for="{{item.deliverables}}" wx:for-item="part" wx:key="*this" class="badge">{{part}}</text></view>
     <view class="price">¥{{item.price}} <text class="muted">配置参考价 · 演示不支付</text></view>
-    <button class="primary" bindtap="begin" data-id="{{item.id}}">开始 / 继续定制</button>
+    <button class="primary" bindtap="begin" disabled="{{busy}}" loading="{{busy}}" data-id="{{item.id}}">开始 / 继续定制</button>
   </view>
+  <view wx:if="{{referralError}}" class="notice">{{referralError}}<button class="secondary" bindtap="dismissReferral">不参与本次邀请，继续定制</button></view>
   <view class="error" wx:if="{{error}}">{{error}}</view>
   <button class="primary" bindtap="membership">会员方案 / 邀请三人返款活动</button>
   <button class="secondary" bindtap="orders">查看我的定制订单</button>

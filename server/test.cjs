@@ -78,7 +78,7 @@ test('小程序远程适配器与HTTP后端联调：登录、收藏、断网重�
     }).catch(()=>opts.fail());
   }};
   function load(relative,overrides={}){const filename=path.resolve(__dirname,'../miniprogram/services',relative),module={exports:{}};const native=createRequire(filename);vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,exports:module.exports,wx,require:name=>Object.hasOwn(overrides,name)?overrides[name]:native(name)},{filename});return module.exports;}
-  const remote=load('remote.js',{'../data/runtime':{apiBase:base}});const api=load('api.js',{'./remote':remote});
+  const remote=load('remote.js',{'../data/runtime':{apiBase:base}});const api=load('api.js',{'./remote':remote,'./invitation':{ensure:async()=>({bound:false})}});
   try {
     assert.equal((await api.getPackages())[0].price,12.8);assert.equal((await api.getCards()).items.length,3);
     await api.favoriteCard('lin',true);assert.equal((await api.getCards({favorites:true})).items.length,1);

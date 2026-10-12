@@ -1,5 +1,6 @@
 // Local demo adapter with authenticated remote service routing. Server validates ownership, answers and pricing.
 const remote = require('./remote');
+const invitation = require('./invitation');
 const freeCards = require('../data/free-cards');
 const config = require('../data/config');
 const banks = require('../data/questions');
@@ -23,6 +24,7 @@ function gallery() { return wx.getStorageSync('persona-gallery-v1') || { favorit
 function saveGallery(data) { wx.setStorageSync('persona-gallery-v1',data); }
 module.exports = {
   backendEnabled: remote.enabled,
+  ensureReferral: invitation.ensure,
   getMembership: () => remote.enabled ? remote.request('/api/membership','GET',{},true) : Promise.resolve({active:false,plans:config.memberships}),
   getReferrals: () => remote.enabled ? remote.request('/api/referrals','GET',{},true) : Promise.resolve({code:'',count:0,availableCount:0,target:3,enabled:false,rebates:[],refundableOrders:[]}),
   requestRebate: orderId => remote.enabled ? remote.request('/api/referrals/rebate','POST',{orderId},true) : Promise.reject(new Error('本地演示不执行真实退款')),
@@ -40,11 +42,11 @@ module.exports = {
   getPackages: () => remote.enabled ? remote.request('/api/config').then(c=>c.packages) : Promise.resolve(config.packages),
   getIdentity: () => Promise.resolve({ mode: remote.enabled ? 'server' : 'local-demo', authenticated: remote.enabled && !!wx.getStorageSync('persona-session') }),
   listOrders: () => { if(remote.enabled)return remote.request('/api/orders','GET',{},true);seedOrders(); return Promise.resolve(read().orders); },
-  submitOrder: (id, answers, options = {}) => {
+  submitOrder: async (id, answers, options = {}) => {
     if (!validAnswers(id, answers)) return Promise.reject(new Error('请完成所有题目'));
     if (typeof options.requirements !== 'undefined' && (typeof options.requirements !== 'string' || options.requirements.length > 500)) return Promise.reject(new Error('具体要求最多500字'));
     if (!options.privateOrder && options.publicAcknowledged !== true) return Promise.reject(new Error('请确认普通定制成品默认公开说明'));
-    if(remote.enabled) { const draft=loadDraft(id);if(!draft.requestId){draft.requestId='request-'+Date.now()+'-'+Math.random().toString(36).slice(2);saveDraft(id,draft);}return remote.request('/api/orders','POST',{packageId:id,answers,...options,requestId:draft.requestId},true).then(order=>{saveDraft(id,{orderId:order.id});return order;}); }
+    if(remote.enabled) { await invitation.ensure();const draft=loadDraft(id);if(!draft.requestId){draft.requestId='request-'+Date.now()+'-'+Math.random().toString(36).slice(2);saveDraft(id,draft);}return remote.request('/api/orders','POST',{packageId:id,answers,...options,requestId:draft.requestId},true).then(order=>{saveDraft(id,{orderId:order.id});return order;}); }
     if(options.useMembership)return Promise.reject(new Error('本地演示没有真实会员额度'));
     const p = getPackage(id), data = read();
     const draft = data.drafts[id];
