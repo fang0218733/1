@@ -1,9 +1,16 @@
 <view class="container">
-  <view class="card">
-    <text class="eyebrow">从一个想法开始</text>
-    <text class="title">{{greeting}}</text>
-    <text class="description">这里将成为你的小程序首页。</text>
-    <button class="primary" bindtap="onTap">点一下试试</button>
-    <text class="hint" aria-live="polite">已经点击 {{count}} 次</text>
+  <text class="eyebrow">DEEPSEEK · 陪聊人设定制</text>
+  <text class="title">让每一种陪伴，都有专属的温度</text>
+  <view class="subtitle">只需选择，无需填写。把你期待的性格、相处方式和故事，交给设计师细细描绘。</view>
+  <view class="notice">第一阶段演示 · 本地保存 · 不收款 · 当前不调用 DeepSeek，不提供真实制作与交付。</view>
+  <view class="card" wx:for="{{packages}}" wx:key="id">
+    <view class="badge">{{item.count}} 个选择，描绘你的理想角色</view>
+    <view class="section">{{item.name}}</view>
+    <view class="subtitle">{{item.description}}</view>
+    <view class="price">¥{{item.price}} <text class="muted">配置参考价 · 演示不支付</text></view>
+    <button class="primary" bindtap="begin" data-id="{{item.id}}">开始 / 继续定制</button>
   </view>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+  <button class="secondary" bindtap="orders">我的演示订单</button>
+  <view class="muted">答案保存在当前设备，清除小程序缓存后将丢失。每题均可交由设计师决定。</view>
 </view>

@@ -1,0 +1,3 @@
+progress { margin-top: 24rpx; }
+.option { background: #f5f3ed; color: #5a625c; text-align: left; padding: 18rpx 24rpx; line-height: 1.5; border: 2rpx solid transparent; }
+.checked { background: #eaf0e9; color: #466554; border-color: #7d9a87; }

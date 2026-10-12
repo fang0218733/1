@@ -1,0 +1,14 @@
+<view class="container">
+  <view class="row"><text class="eyebrow">描绘你的专属角色</text><text class="muted">{{answered}} / {{total}} 已答</text></view>
+  <progress percent="{{progress}}" stroke-width="4" activeColor="#607f70" backgroundColor="#e5e6df" />
+  <view class="card" wx:if="{{question.id}}">
+    <view class="badge">{{question.category}} · 第 {{index + 1}} 题</view>
+    <view class="section">{{question.title}}</view>
+    <view class="muted">{{question.multiple ? '多选 · 可选择多个偏好' : '单选 · 选择最贴近的一项'}}；设计师决定与其他选项互斥</view>
+    <button wx:for="{{choices}}" wx:key="value" class="option {{item.checked ? 'checked' : ''}}" bindtap="choose" data-value="{{item.value}}">{{item.checked ? '●' : '○'}}　{{item.value}}</button>
+  </view>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+  <view class="row"><button class="secondary" bindtap="prev" disabled="{{index === 0}}">上一题</button><button class="primary" bindtap="next" disabled="{{!selected}}">{{index === total - 1 ? '查看汇总' : '下一题'}}</button></view>
+  <button class="secondary" bindtap="summary" wx:if="{{question.id}}">答案汇总 / 跳转修改</button>
+  <view class="muted">每次选择自动保存至本机。可随时返回，继续时恢复位置。</view>
+</view>

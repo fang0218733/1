@@ -1,0 +1,11 @@
+<view class="container">
+  <text class="eyebrow">定制档案</text><text class="title">确认每一份期待</text>
+  <view class="subtitle">{{package.name}} · 配置参考价 ¥{{package.price}}</view>
+  <view class="notice">{{complete ? '所有题目已完成，可以确认提交。' : '还有未答题目，点击对应条目补充。'}}本阶段仅保存演示订单。</view>
+  <view class="card answer" wx:for="{{rows}}" wx:key="id" bindtap="edit" data-index="{{item.index}}">
+    <view class="muted">{{item.index + 1}} · {{item.category}} · {{submitted ? '已提交快照' : '点击修改'}}</view>
+    <view class="section">{{item.title}}</view><view class="{{item.missing ? 'error' : 'value'}}">{{item.answer}}</view>
+  </view>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+  <button class="primary" bindtap="submit" disabled="{{!complete || busy || submitted}}" loading="{{busy}}">{{submitted ? '已提交，可从首页开启新定制' : '确认并提交演示订单'}}</button>
+</view>
