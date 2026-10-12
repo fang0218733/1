@@ -1,7 +1,7 @@
 <view class="container">
   <text class="eyebrow">定制档案</text><text class="title">确认每一份期待</text>
-  <view class="subtitle">{{package.name}} · 配置参考价 ¥{{price}}</view>
-  <view class="notice">{{complete ? '所有题目已完成，可以确认提交。' : '还有未答题目，点击对应条目补充。'}}{{backendEnabled ? "当前提交云端定制申请，暂不收费。" : "本地演示，不收款。"}}</view>
+  <view class="subtitle">{{package.name}} · 配置参考价 {{price === null ? '价格待确认' : '¥' + price}}</view>
+  <view class="notice">{{complete ? '所有题目已完成，可以确认提交。' : '还有未答题目，点击对应条目补充。'}}{{backendEnabled ? "生成待确认需求单，私聊核对报价与交付安排。" : "本地演示，不收款。"}}</view>
   <view class="card answer" wx:for="{{rows}}" wx:key="id" bindtap="edit" data-index="{{item.index}}">
     <view class="muted">{{item.index + 1}} · {{item.category}} · {{submitted ? '已提交快照' : '点击修改'}}</view>
     <view class="section">{{item.title}}</view><view class="{{item.missing ? 'error' : 'value'}}">{{item.answer}}</view>
@@ -14,12 +14,10 @@
     <view class="muted">可补充特别偏好或希望避开的内容，最多500字；不填也可以提交。请勿填写密码或联系方式。</view>
     <textarea class="requirements" maxlength="500" value="{{requirements}}" bindinput="requirements" disabled="{{submitted}}" placeholder="例如：希望语气自然，少用昵称，偏爱雨天的书店剧情。" />
     <view class="muted">{{requirements.length}} / 500</view>
-    <view class="row privacy"><view><view class="section">私人定制 · 不公开</view><view class="muted">基础价格 × 1.5，成品不作为公开角色卡</view></view><switch checked="{{privateOrder}}" bindchange="privacy" disabled="{{submitted}}" color="#607f70" /></view>
-    <view wx:if="{{membership.active}}" class="notice"><view>会员剩余 {{membership.remaining}} 次</view><switch checked="{{useMembership}}" bindchange="quota" disabled="{{submitted}}" color="#607f70" />使用会员额度（需套餐在额度范围内）<view class="muted">普通定制扣1次额度，私人需另付50%差价，目前补差价支付未接通。</view></view>
-    <view class="price">¥{{price}} <text class="muted">{{privateOrder ? '私人定制' : '普通定制'}} · 暂不开通收费</text></view>
+    <view class="price">{{price === null ? '价格待确认' : '¥' + price}} <text class="muted">{{privateOrder ? '私人定制' : '普通定制'}} · 需求确认前不标记付款</text></view>
   </view>
-  <view class="notice">{{backendEnabled ? '问卷和具体要求会保存至服务端，用于DeepSeek生成草稿，并经人工审核交付。' : '演示数据仅保存至本机。'}}请勿填写真实敏感信息。私人定制始终不公开。</view>
+  <view class="notice">{{backendEnabled ? '问卷保存至服务端，仅用于私聊核对和人工制作；不收集支付密码或银行卡资料。' : '演示数据仅保存至本机。'}}请勿填写真实敏感信息。私人定制始终不公开。</view>
   <checkbox-group bindchange="acknowledge" wx:if="{{!privateOrder}}"><label class="notice"><checkbox value="public" checked="{{publicAcknowledged}}" disabled="{{submitted}}" color="#607f70" />我已了解：普通定制成品经审核后默认发布至免费大厅，任何客户都可查看和下载；问卷与具体要求不会公开。</label></checkbox-group>
   <view class="error" wx:if="{{error}}">{{error}}</view>
-  <button class="primary" bindtap="submit" disabled="{{!complete || busy || submitted}}" loading="{{busy}}">{{submitted ? '已提交，可从首页开启新定制' : (backendEnabled ? '确认提交定制申请' : '确认提交演示订单')}}</button>
+  <button class="primary" bindtap="submit" disabled="{{!complete || busy || submitted}}" loading="{{busy}}">{{submitted ? '已提交，可从首页开启新定制' : (backendEnabled ? '生成待确认需求单' : '确认提交演示订单')}}</button>
 </view>

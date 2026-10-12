@@ -30,7 +30,7 @@ class Domain {
     return this.s.put('cards',id,{ id,relationship:this.relationship(input.relationship),name:text(input.name,60),tag:text(input.tag,100),intro:text(input.intro,300),category:text(input.category,40),card:text(input.card,12000),cover,symbol:(input.name || '').slice(0,1),published:!!input.published,createdAt:old ? old.createdAt : Date.now() });
   }
   submit(user,input) {
-    const p = packages.packages.find(p => p.id === input.packageId); if (!p) fail('套餐不存在');
+    const p = this.getConfig().packages.find(p => p.id === input.packageId); if (!p) fail('套餐不存在');
     const answers = input.answers;
     if (!answers || typeof answers !== 'object' || Array.isArray(answers)) fail('答案无效');
     const normalized = {};
@@ -39,51 +39,56 @@ class Domain {
       if (!Array.isArray(a) || !a.length || new Set(a).size !== a.length || a.some(v => !q.options.includes(v)) || (!q.multiple && a.length !== 1) || (a.includes('由设计师决定') && a.length !== 1)) fail('请完成全部选择，未答题可交由设计师决定');
       normalized[q.id] = a;
     }
-    const privateOrder = input.privateOrder === true;
+    const privateOrder = p.id === 'private';
     if (!privateOrder && input.publicAcknowledged !== true) fail('请确认普通定制成品默认公开的说明');
     if (!/^[\w-]{16,100}$/.test(input.requestId || '')) fail('提交标识无效');
     const id = this.key(user,input.requestId);
-    const payload = { packageId:p.id,relationship:this.relationship(input.relationship),useMembership:input.useMembership===true,answers:normalized,privateOrder,requirements:text(input.requirements || '',500,false),publicAcknowledged:!privateOrder,policyVersion:'public-v1' };
+    const payload = { packageId:p.id,relationship:this.relationship(input.relationship),answers:normalized,privateOrder,requirements:text(input.requirements || '',500,false),publicAcknowledged:!privateOrder,policyVersion:'public-v1' };
     const fingerprint = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
     return this.s.transaction(() => {
       const old = this.s.get('orders',id); if (old) { if (old.fingerprint !== fingerprint) fail('提交标识已使用，请重新开始',409); return this.customerOrder(old); }
-      const order = { ...payload,id,owner:user,fingerprint,name:p.name,price:Number((p.price*(privateOrder?packages.privateMultiplier:1)).toFixed(2)),payment:'disabled',status:'待处理',date:new Date().toISOString(),createdAt:Math.max(Date.now(),(this.s.get('meta','lastOrderTime')||0)+1),revision:0,card:'',generated:'',generationError:'',publicCardId:'' };
-      if(input.useMembership===true)this.loyalty.useQuota(user,order);this.s.put('meta','lastOrderTime',order.createdAt);this.s.put('orders',id,order); return this.customerOrder(order);
+      const order = { ...payload,id,owner:user,fingerprint,name:p.name,price:p.price,quoteSnapshot:{amount:p.price,currency:'CNY',capturedAt:new Date().toISOString()},questionVersion:packages.questionVersion,questionSnapshot:questions[p.id],paymentMode:'manual',paymentStatus:'待确认',productionStatus:'待处理',payment:'manual_unconfirmed',status:'待确认需求单',terms:{deliveryAt:'',revisions:null,refundConditions:''},audit:[],date:new Date().toISOString(),createdAt:Math.max(Date.now(),(this.s.get('meta','lastOrderTime')||0)+1),revision:0,card:'',generated:'',generationError:'',publicCardId:'' };
+      if(input.useMembership===true)fail('当前人工确认流程不使用会员额度');this.s.put('meta','lastOrderTime',order.createdAt);this.s.put('orders',id,order); return this.customerOrder(order);
     });
   }
-  customerOrder(o) { const { owner,fingerprint,generated,generatedParts,generationError,generationStarted, ...safe } = o; return safe; }
+  customerOrder(o) { const { owner,fingerprint,audit,generated,generatedParts,generationError,generationStarted, ...safe } = o; return safe; }
   orders(user) { return this.s.list('orders').filter(o => o.owner === user).sort((a,b) => b.createdAt-a.createdAt).map(o => o.type==='membership'?this.loyalty.purchaseView(o):this.customerOrder(o)); }
   order(id) { const order = this.s.get('orders',id); if (!order) fail('订单不存在',404); return order; }
-  async generate(id, generator) {
-    const revision = this.s.transaction(() => {
-      const o = this.order(id);
-      if(o.type==='membership')fail('会员订单无需生成');if(o.payment==='awaiting_topup')fail('私人差价尚未支付，不能生成');
-      if (o.status === '已完成') fail('已完成订单不能重新生成',409);
-      if (o.generationStarted && Date.now()-o.generationStarted < 120000) fail('正在生成，请稍后',409);
-      o.revision++; o.generationStarted=Date.now(); o.status='制作中'; o.generationError=''; this.s.put('orders',id,o); return o.revision;
+  getConfig() { const prices=this.s.get('meta','manualPrices')||{};return {...packages,paymentEnabled:false,paymentMode:'manual',packages:packages.packages.map(p=>({...p,price:Object.hasOwn(prices,p.id)?prices[p.id]:p.price}))}; }
+  updatePrices(input) { const prices={};for(const p of packages.packages){const value=input[p.id];if(value!==null&&(!Number.isFinite(value)||value<0||Math.abs(Math.round(value*100)-value*100)>0.000001))fail('价格应为非负金额（最多两位小数），或空值');prices[p.id]=value;}this.s.put('meta','manualPrices',prices);return this.getConfig(); }
+  manage(id,input,adminId='authenticated-admin') {
+    return this.s.transaction(()=>{
+      const o=this.order(id);if(input.revision!==o.revision)fail('需求单已变化，请刷新',409);
+      if(!o.paymentStatus)fail('历史订单需另行核对，不自动迁移付款状态');
+      const action=input.action;
+      if(action==='quote') {
+        if(o.paymentStatus==='已人工核实'||o.paymentStatus==='已退款'||o.productionStatus==='已取消')fail('当前状态不能重新报价');
+        if(!Number.isFinite(input.amount)||input.amount<0||Math.abs(Math.round(input.amount*100)-input.amount*100)>0.000001)fail('约定金额无效');
+        if(!Number.isInteger(input.revisions)||input.revisions<0||input.revisions>100)fail('请输入0至100的修改次数');
+        if(typeof input.deliveryAt!=='string'||!Number.isFinite(Date.parse(input.deliveryAt)))fail('请录入有效约定交付时间');
+        o.price=input.amount;o.agreedQuote={amount:input.amount,currency:'CNY',confirmedAt:new Date().toISOString()};o.terms={deliveryAt:input.deliveryAt,revisions:input.revisions,refundConditions:text(input.refundConditions,1000)};o.paymentStatus='待付款';
+      } else if(action==='confirmReceipt') {
+        if(o.paymentStatus!=='待付款'||o.productionStatus==='已取消'||!o.agreedQuote)fail('请先确认报价，当前不能核实收款');
+        if(input.amount!==o.agreedQuote.amount)fail('收款金额与约定报价不一致');
+        o.paymentStatus='已人工核实';o.payment='manual_verified';
+      } else if(action==='refund') {if(o.paymentStatus!=='已人工核实')fail('只有已人工核实收款的需求单可记录退款');if(input.amount!==o.agreedQuote.amount)fail('当前只记录全额退款，金额必须一致');o.paymentStatus='已退款';o.payment='manual_refunded';o.productionStatus='已取消';}
+      else if(action==='start') {if(o.paymentStatus!=='已人工核实'||o.productionStatus!=='待处理')fail('核实收款后才能开始制作');o.productionStatus='制作中';}
+      else if(action==='cancel') {if(o.productionStatus==='已交付')fail('已交付订单不能直接取消');o.productionStatus='已取消';}
+      else fail('操作无效');
+      o.revision++;o.audit=(o.audit||[]).concat({action,adminId,at:new Date().toISOString()});this.s.put('orders',id,o);return o;
     });
-    try {
-      const o = this.order(id);
-      const result = await generator(o, questions[o.packageId]);
-      let generatedParts=null;
-      if(o.packageId==='ultra') { const parts=typeof result==='string'?JSON.parse(result):result;generatedParts={};for(const key of ['card','biography','worldView','worldBackground'])generatedParts[key]=text(parts&&parts[key],8000); }
-      const generated = generatedParts?generatedParts.card:text(result,12000);
-      this.s.transaction(() => { const current=this.order(id); if (current.revision!==revision) fail('订单已变化，请刷新',409); current.generated=generated;current.generatedParts=generatedParts; current.generationStarted=0; current.revision++; this.s.put('orders',id,current); });
-      return this.order(id);
-    } catch(e) {
-      this.s.transaction(() => { const current=this.order(id); if(current.revision===revision) { current.generationStarted=0; current.generationError='生成失败，请检查服务配置后重试，也可手动制作'; current.revision++; this.s.put('orders',id,current); } }); throw e;
-    }
   }
+  async generate() { fail('本阶段采用人工制作，不调用AI生成',503); }
   review(id,input) {
     return this.s.transaction(() => {
-      const o=this.order(id);if(o.type==='membership')fail('会员订单不能交付人物卡');if(o.payment==='awaiting_topup')fail('私人差价尚未支付，不能交付'); if(input.revision!==o.revision) fail('订单已变化，请刷新后再审核',409);
+      const o=this.order(id);if(o.paymentStatus!=='已人工核实'||!['待处理','制作中','已交付'].includes(o.productionStatus))fail('核实收款且未取消后才能交付');if(o.type==='membership')fail('会员订单不能交付人物卡');if(o.payment==='awaiting_topup')fail('私人差价尚未支付，不能交付'); if(input.revision!==o.revision) fail('订单已变化，请刷新后再审核',409);
       const card=text(input.card,12000); let parts={};if(o.packageId==='ultra')for(const key of ['biography','worldView','worldBackground'])parts[key]=text(input[key],8000);const completeCard=[card,...Object.entries(parts).map(([key,value])=>({'biography':'人物生平','worldView':'世界观','worldBackground':'世界背景'}[key])+'\n'+value)].join('\n\n'); const publish=input.publish===true;
       if(o.privateOrder && publish) fail('私人定制禁止公开',403);
       if(publish && !o.publicAcknowledged) fail('没有公开告知确认，不能发布',403);
       const publicId='order-'+id;
       if(publish) { this.s.put('cards',publicId,{ id:publicId,orderId:id,relationship:o.relationship||'BG',name:text(input.name,60),category:text(input.category,40),tag:text(input.tag,100),intro:text(input.intro,300),card:completeCard,cover:'',symbol:input.name.slice(0,1),published:true,createdAt:Date.now() }); o.publicCardId=publicId; }
       else { this.s.remove('cards',publicId); o.publicCardId=''; }
-      o.card=card;Object.assign(o,parts); o.status='已完成'; o.revision++; o.generationStarted=0; this.s.put('orders',id,o); return o;
+      o.card=card;Object.assign(o,parts); o.productionStatus='已交付';o.status='已交付';o.audit=(o.audit||[]).concat({action:'deliver',adminId:'authenticated-admin',at:new Date().toISOString()}); o.revision++; o.generationStarted=0; this.s.put('orders',id,o); return o;
     });
   }
 }

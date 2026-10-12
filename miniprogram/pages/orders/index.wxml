@@ -1,15 +1,10 @@
-<view class="container">
-  <text class="eyebrow">我的定制</text><text class="title">陪伴的诞生记录</text>
-  <view class="notice">{{backendEnabled ? "云端定制申请 · 暂不收费 · 成品经管理员审核后交付。" : "本地演示，不收款；制作中与已完成记录为样例。"}}</view>
-  <view class="filters"><button wx:for="{{filters}}" wx:key="*this" class="{{active === item ? 'primary' : 'secondary'}}" bindtap="select" data-status="{{item}}">{{item}}</button></view>
-  <view class="card" wx:for="{{orders}}" wx:key="id">
-    <view class="row"><view class="badge">{{item.demo ? "演示 · " : ""}}{{item.status}}</view><text class="muted">¥{{item.price}}</text></view>
-    <view class="section">{{item.name}}</view><view wx:if="{{!item.type}}" class="badge">{{item.relationship || "BG"}}</view><view wx:if="{{!item.type}}" class="muted">{{item.privateOrder ? "私人定制 · 不公开" : "普通定制"}}</view><view wx:if="{{item.requirements}}" class="persona">具体要求：{{item.requirements}}</view><view class="muted">{{item.id}}</view><view class="muted">{{item.date}}</view>
-    <view wx:if="{{item.card}}" class="persona" selectable="{{true}}">{{item.card}}</view>
-    <view wx:if="{{item.biography}}" class="persona"><view class="section">人物生平</view>{{item.biography}}</view><view wx:if="{{item.worldView}}" class="persona"><view class="section">世界观</view>{{item.worldView}}</view><view wx:if="{{item.worldBackground}}" class="persona"><view class="section">世界背景</view>{{item.worldBackground}}</view>
-    <button wx:if="{{item.card}}" class="primary" bindtap="copy" data-id="{{item.id}}">复制成品人设卡</button>
-    <view wx:elif="{{item.type === 'membership'}}" class="muted">会员购买未支付不会发放额度，当前真实购买未开放。</view><view wx:else class="muted">{{item.status === '待处理' ? '已收到本地答案，等待管理员处理。' : '正在生成或审核人设，完成后可在这里查看。'}}</view>
-  </view>
-  <view wx:if="{{!orders.length}}" class="card muted">暂无此状态订单，去描绘你的专属角色吧。</view>
-  <view class="error" wx:if="{{error}}">{{error}}</view><button class="secondary" bindtap="home">前往专属定制</button>
-</view>
+<view class="container"><text class="eyebrow">我的需求单</text><text class="title">每一份期待，都有记录</text>
+<view class="notice">{{backendEnabled ? '私聊核对编号、报价和交付安排；提交不代表已付款。收款由管理员核实，成品人工制作交付。' : '仅本地模拟，不代表真实收款、管理员权限或跨设备同步。示例状态均为演示。'}}</view>
+<view class="filters"><button wx:for="{{filters}}" wx:key="*this" class="{{active === item ? 'primary' : 'secondary'}}" bindtap="select" data-status="{{item}}">{{item}}</button></view>
+<view class="card" wx:for="{{orders}}" wx:key="id"><view class="badge">{{item.demo ? '模拟 · ' : ''}}{{item.name}}</view><view class="muted">编号 {{item.id}}</view><view class="muted">创建 {{item.date}} · 题库 {{item.questionVersion}}</view>
+<view class="section">付款：{{item.paymentStatus || '历史状态待人工核对'}}</view><view class="section">制作：{{item.productionStatus || '历史状态待人工核对'}}</view>
+<view class="muted">提交时报价：{{item.quoteSnapshot ? (item.quoteSnapshot.amount == null ? '价格待确认' : '¥' + item.quoteSnapshot.amount) : '历史报价待核对'}}</view><view wx:if="{{item.agreedQuote}}" class="muted">双方约定报价：¥{{item.agreedQuote.amount}}</view>
+<view wx:if="{{item.terms.deliveryAt}}" class="notice">约定交付：{{item.terms.deliveryAt}}<view>修改次数：{{item.terms.revisions}}</view><view>退款条件：{{item.terms.refundConditions}}</view></view>
+<button class="secondary" bindtap="copyDemand" data-id="{{item.id}}">复制需求单，方便私聊核对</button>
+<view wx:if="{{item.productionStatus === '已交付'}}" class="persona">{{item.card}}</view><button wx:if="{{item.productionStatus === '已交付'}}" class="primary" bindtap="copy" data-id="{{item.id}}">领取并复制成品</button>
+</view><view wx:if="{{!orders.length}}" class="card muted">暂无需求单</view><view wx:if="{{error}}" class="error">{{error}}</view><button class="secondary" bindtap="home">前往定制</button></view>

@@ -1,7 +1,7 @@
 // Cross-platform demo entry; never enables payments or real AI calls.
 process.env.DEMO_MODE='true';
 process.env.HOST='127.0.0.1';
-process.env.AUTO_GENERATE='true';
+process.env.AUTO_GENERATE='false';
 const path=require('node:path'),fs=require('node:fs');
 const Store=require('./store.cjs');
 const {createApp}=require('./index.cjs');

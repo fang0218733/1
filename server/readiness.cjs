@@ -8,7 +8,7 @@ function readiness(env=process.env) {
     {name:'微信AppID',ok:!!env.WECHAT_APP_ID&&env.WECHAT_APP_ID!=='touristappid'},
     {name:'微信AppSecret',ok:!!env.WECHAT_APP_SECRET},
     {name:'指定持久数据目录',ok:!!env.DATA_DIR&&path.isAbsolute(env.DATA_DIR)},
-    {name:'DeepSeek密钥（不配置可手动制作）',ok:!!env.DEEPSEEK_API_KEY,optional:true}
+    {name:'DeepSeek密钥（人工制作阶段不需要）',ok:!!env.DEEPSEEK_API_KEY,optional:true}
   ];
   return {configured:checks.filter(c=>!c.optional).every(c=>c.ok),checks,paymentEnabled:false,remoteValidationPerformed:false};
 }

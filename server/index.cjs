@@ -5,6 +5,7 @@ const crypto=require('node:crypto');
 const Store=require('./store.cjs');
 const { Domain,fail }=require('./domain.cjs');
 const providers=require('./providers.cjs');
+const payment=require('./payment.cjs');
 const packages=require('../miniprogram/data/config');
 function createApp({ store,env=process.env,identity=code=>providers.wechatIdentity(code,env),generator=(o,q)=>providers.generate(o,q,env) }) {
   const domain=new Domain(store),loyalty=domain.loyalty,demo=env.DEMO_MODE==='true';
@@ -19,15 +20,7 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
   function optionalCustomer(req) { return req.headers.authorization?customer(req):null; }
   function admin(req) { const cookie=/(?:^|;\s*)persona_admin=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||''); const session=cookie&&sessions.get(hash(cookie[1])); if(!session || session.expires<Date.now()) fail('请登录管理后台',401); }
   async function body(req,max=200000) { let size=0,chunks=[]; for await(const chunk of req) { size+=chunk.length; if(size>max) fail('请求内容过大',413); chunks.push(chunk); } try { return JSON.parse(Buffer.concat(chunks).toString()||'{}'); } catch(e) { fail('请求格式错误'); } }
-  let queueBusy=false;
-  async function processQueue() {
-    if(queueBusy || env.AUTO_GENERATE!=='true' || (!demo&&!env.DEEPSEEK_API_KEY))return;
-    const date=new Date().toISOString().slice(0,10),budget=store.get('meta','generation-'+date)||0;
-    const cap=Math.max(0,Math.min(Number(env.MAX_AUTO_GENERATIONS_PER_DAY)||20,100));if(budget>=cap)return;
-    const order=store.list('orders').sort((a,b)=>a.createdAt-b.createdAt).find(o=>o.type!=='membership'&&o.payment!=='awaiting_topup'&&!o.generated&&!o.generationError&&o.status!=='已完成'&&(!o.generationStarted||Date.now()-o.generationStarted>=120000));
-    if(!order)return;queueBusy=true;store.put('meta','generation-'+date,budget+1);
-    try { await domain.generate(order.id,demo?async(o)=> o.packageId==='ultra'?{card:'模拟人物卡，待人工审核',biography:'模拟人物生平，待人工审核',worldView:'模拟世界观，待人工审核',worldBackground:'模拟世界背景，待人工审核'}:'【模拟自动生成 · 待人工审核】\n虚构成年角色，温柔耐心，尊重独立空间。这里只是本地流程演示，不是DeepSeek生成结果。':generator); } catch(e) { /* Failure remains on order for administrator review/retry. */ } finally {queueBusy=false;}
-  }
+  async function processQueue() { /* Manual production only; never auto-start before receipt verification. */ }
   const server=http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cache-Control','no-store');
     res.setHeader('Content-Security-Policy',"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'");
@@ -47,7 +40,8 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
       if(adminRoute) {
         admin(req);
         if(p==='/admin/api/logout' && req.method==='POST') { const c=/(?:^|;\s*)persona_admin=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||''); if(c)sessions.delete(hash(c[1]));res.setHeader('Set-Cookie','persona_admin=; HttpOnly; SameSite=Strict; Path=/admin; Max-Age=0');return send({ok:true}); }
-        if(p==='/admin/api/state' && req.method==='GET') return send({demo,cards:domain.cards({},null,true),referrals:store.list('rebates'),memberships:store.list('memberships').map(m=>({...m,quota:loyalty.membership(m.owner)})),membershipOrders:store.list('orders').filter(o=>o.type==='membership'),orders:store.list('orders').filter(o=>o.type!=='membership').sort((a,b)=>b.createdAt-a.createdAt),questions:require('../miniprogram/data/questions'),generationConfigured:demo||!!env.DEEPSEEK_API_KEY});
+        if(p==='/admin/api/state' && req.method==='GET') return send({demo,cards:domain.cards({},null,true),referrals:store.list('rebates'),memberships:store.list('memberships').map(m=>({...m,quota:loyalty.membership(m.owner)})),membershipOrders:store.list('orders').filter(o=>o.type==='membership'),orders:store.list('orders').filter(o=>o.type!=='membership').sort((a,b)=>b.createdAt-a.createdAt),questions:require('../miniprogram/data/questions'),config:domain.getConfig(),generationConfigured:false});
+        if(p==='/admin/api/prices'&&req.method==='POST')return send(domain.updatePrices(await body(req)));
         if(p==='/admin/api/cards' && req.method==='POST') return send(domain.saveCard(await body(req)));
         if(p==='/admin/api/upload' && req.method==='POST') {
           const input=await body(req,2900000); if(typeof input.data!=='string' || input.data.length>2800000) fail('图片过大');
@@ -58,14 +52,15 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
           if(!ext || buffer.length>2*1024*1024) fail('仅支持2MB以内PNG/JPEG/WebP图片');
           const filename=crypto.randomBytes(16).toString('hex')+'.'+ext;fs.writeFileSync(path.join(mediaDir,filename),buffer);return send({cover:'/media/'+filename});
         }
-        const match=/^\/admin\/api\/orders\/([a-f0-9]{64})\/(generate|review)$/.exec(p);
+        const match=/^\/admin\/api\/orders\/([a-f0-9]{64})\/(generate|review|manage)$/.exec(p);
         if(match && req.method==='POST') {
+          if(match[2]==='manage'){const input=await body(req);return send(input.action==='confirmReceipt'?payment.confirmReceipt(domain,match[1],input):input.action==='refund'?payment.recordRefund(domain,match[1],input):domain.manage(match[1],input));}
           if(match[2]==='generate') { rate('generate',10);const make=demo?async(o)=> o.packageId==='ultra'?{card:'模拟人物卡，待人工审核',biography:'模拟人物生平，待人工审核',worldView:'模拟世界观，待人工审核',worldBackground:'模拟世界背景，待人工审核'}:'【本地模拟生成 · 请审核】\n这是演示草稿，不是 DeepSeek 返回结果。请结合完整答案编写角色基础、外貌、性格、相处边界和剧情。':generator;return send(await domain.generate(match[1],make)); }
           return send(domain.review(match[1],await body(req)));
         }
         fail('接口不存在',404);
       }
-      if(p==='/api/config') return send({...packages,paymentEnabled:false,mode:demo?'demo':'live'});
+      if(p==='/api/config') return send({...domain.getConfig(),mode:demo?'demo':'live'});
       if(p==='/api/login' && req.method==='POST') {
         rate('customer-login:'+req.socket.remoteAddress,30);const data=await body(req,2000);const user=demo?'local-demo-user':await identity(data.code);
         const t=token();store.put('sessions',hash(t),{user,expires:Date.now()+7*86400000});
@@ -81,7 +76,7 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
       if(p==='/api/referrals/bind' && req.method==='POST'){const user=customer(req),data=await body(req,2000);return send(loyalty.bind(user,data.code));}
       if(p==='/api/referrals/rebate' && req.method==='POST'){customer(req);fail('真实支付和退款尚未接通，活动暂未开放',503);}
       if(p==='/api/membership' && req.method==='GET')return send(loyalty.membership(customer(req)));
-      if(p==='/api/membership' && req.method==='POST'){const user=customer(req),data=await body(req,2000);return send(loyalty.purchase(user,data.planId,data.requestId));}
+      if(p==='/api/membership' && req.method==='POST'){fail('人工确认阶段暂不开放会员购买',503);const user=customer(req),data=await body(req,2000);return send(loyalty.purchase(user,data.planId,data.requestId));}
       if(p==='/api/orders' && req.method==='GET') return send(domain.orders(customer(req)));
       if(p==='/api/orders' && req.method==='POST') { const user=customer(req);rate('orders:'+user,10);return send(domain.submit(user,await body(req))); }
       fail('接口不存在',404);
