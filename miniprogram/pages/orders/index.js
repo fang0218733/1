@@ -1,6 +1,6 @@
 const api = require('../../services/api');
 Page({
-  data: { orders: [], filters: ['全部', '待处理', '制作中', '已完成'], active: '全部', error: '' },
+  data: { backendEnabled: api.backendEnabled, orders: [], filters: ['全部', '待处理', '制作中', '已完成'], active: '全部', error: '' },
   onShow() { Promise.resolve().then(() => api.listOrders()).then(orders => { this.all = orders; this.filter(); }).catch(() => this.setData({ error: '订单读取失败，请稍后重试' })); },
   select(e) { this.setData({ active: e.currentTarget.dataset.status }); this.filter(); },
   filter() { this.setData({ orders: (this.all || []).filter(o => this.data.active === '全部' || o.status === this.data.active) }); },

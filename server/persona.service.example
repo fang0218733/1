@@ -1,0 +1,20 @@
+[Unit]
+Description=Persona workshop backend
+After=network-online.target
+
+[Service]
+Type=simple
+User=persona
+WorkingDirectory=/opt/persona
+EnvironmentFile=/etc/persona.env
+ExecStart=/usr/bin/node /opt/persona/server/index.cjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/persona
+
+[Install]
+WantedBy=multi-user.target
