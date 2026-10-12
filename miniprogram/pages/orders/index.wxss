@@ -1,3 +1,6 @@
 .filters { display: flex; gap: 10rpx; }
 .filters button { flex: 1; font-size: 24rpx; padding: 0; }
 .persona { white-space: pre-wrap; background: #f0f3ed; padding: 24rpx; border-radius: 18rpx; margin-top: 24rpx; line-height: 1.9; }
+
+.filters { flex-wrap: wrap; }
+.filters button { flex: 0 0 30%; }

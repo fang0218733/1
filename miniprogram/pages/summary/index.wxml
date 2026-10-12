@@ -8,11 +8,14 @@
   </view>
   <view class="card">
     <view class="badge">最后一步 · 按你的心意</view>
+    <view class="section">作品方向标签</view><view class="muted">BG 男女向 · GL 女女向 · BL 男男向</view>
+    <view class="row"><button wx:for="{{relationships}}" wx:key="*this" class="{{relationship === item ? 'primary' : 'secondary'}}" data-value="{{item}}" bindtap="relationship" disabled="{{submitted}}">{{item}}</button></view>
     <view class="section">客户具体要求（选填）</view>
     <view class="muted">可补充特别偏好或希望避开的内容，最多500字；不填也可以提交。请勿填写密码或联系方式。</view>
     <textarea class="requirements" maxlength="500" value="{{requirements}}" bindinput="requirements" disabled="{{submitted}}" placeholder="例如：希望语气自然，少用昵称，偏爱雨天的书店剧情。" />
     <view class="muted">{{requirements.length}} / 500</view>
     <view class="row privacy"><view><view class="section">私人定制 · 不公开</view><view class="muted">基础价格 × 1.5，成品不作为公开角色卡</view></view><switch checked="{{privateOrder}}" bindchange="privacy" disabled="{{submitted}}" color="#607f70" /></view>
+    <view wx:if="{{membership.active}}" class="notice"><view>会员剩余 {{membership.remaining}} 次</view><switch checked="{{useMembership}}" bindchange="quota" disabled="{{submitted}}" color="#607f70" />使用会员额度（需套餐在额度范围内）<view class="muted">普通定制扣1次额度，私人需另付50%差价，目前补差价支付未接通。</view></view>
     <view class="price">¥{{price}} <text class="muted">{{privateOrder ? '私人定制' : '普通定制'}} · 暂不开通收费</text></view>
   </view>
   <view class="notice">{{backendEnabled ? '问卷和具体要求会保存至服务端，用于DeepSeek生成草稿，并经人工审核交付。' : '演示数据仅保存至本机。'}}请勿填写真实敏感信息。私人定制始终不公开。</view>

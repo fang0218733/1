@@ -33,8 +33,8 @@ async function main() {
   await api.downloadCard('lin');await api.downloadCard('lin');
   assert.equal((await api.getCards()).items.find(c=>c.id==='lin').downloads,1);
   await api.favoriteCard('lin',false);assert.equal((await api.getCards({favorites:true})).items.length,0);
-  assert.equal(api.quote('basic', false), 8.8);
-  assert.equal(api.quote('basic', true), 13.2);
+  assert.equal(api.quote('basic', false), 12.8);
+  assert.equal(api.quote('basic', true), 19.2);
   assert.equal(api.quote('detailed', true), 28.2);
   api.clearDraft('detailed');
   const privateAnswers = Object.fromEntries(api.getQuestions('detailed').map(q => [q.id, ['由设计师决定']]));
@@ -71,6 +71,6 @@ async function main() {
   global.wx.navigateTo = () => {};
   page.skipRest();
   assert.equal(api.validAnswers('basic', page.answers), true);
-  console.log('通过：价格倍率、私人订单、选填要求保存、跳题与跳过剩余、50/100题完整性、答案校验、草稿恢复、单/多选、设计师选项互斥、提交快照与去重、三种订单状态。');
+  console.log('通过：价格倍率、私人订单、选填要求保存、跳题与跳过剩余、50/100/150题完整性、答案校验、草稿恢复、单/多选、设计师选项互斥、提交快照与去重、三种订单状态。');
 }
 main().catch(err => { console.error(err); process.exitCode = 1; });

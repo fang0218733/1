@@ -1,7 +1,7 @@
 const api = require('../../services/api');
 Page({
   data: { packages: [], error: '', backendEnabled: api.backendEnabled },
-  onShow() { api.getPackages().then(packages => this.setData({ packages, error: '' })).catch(e => this.setData({ error: e.message })); },
+  onShow() { const code=wx.getStorageSync('persona-inviter');if(code&&api.backendEnabled)api.bindReferral(code).then(()=>wx.removeStorageSync('persona-inviter')).catch(e=>this.setData({error:'邀请绑定：'+e.message})); api.getPackages().then(packages => this.setData({ packages, error: '' })).catch(e => this.setData({ error: e.message })); },
   begin(e) {
     const id = e.currentTarget.dataset.id;
     try {
@@ -11,5 +11,6 @@ Page({
       } else wx.navigateTo({ url: '/pages/questionnaire/index?package=' + id });
     } catch (err) { this.setData({ error: '无法读取本地数据，请检查存储空间' }); }
   },
+  membership() { wx.navigateTo({url:'/pages/membership/index'}); },
   orders() { wx.switchTab({ url: '/pages/orders/index' }); }
 });

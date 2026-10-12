@@ -4,7 +4,8 @@
     "pages/customize/index",
     "pages/questionnaire/index",
     "pages/summary/index",
-    "pages/orders/index"
+    "pages/orders/index",
+    "pages/membership/index"
   ],
   "window": {
     "navigationBarTitleText": "知伴 · 人设定制",

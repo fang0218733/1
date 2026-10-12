@@ -5,13 +5,14 @@
   <view class="notice">{{backendEnabled ? "免费角色大厅 · 自由浏览与下载" : "本地演示 · 不收款 · 下载人数与收藏仅为本机统计"}}</view>
   <view class="section">免费角色卡 <text class="muted">FREE COLLECTION</text></view>
   <view class="subtitle">先遇见一个喜欢的角色。免费查看并复制，用于你的陪聊设定。</view>
+  <view class="row"><button class="{{!relationship ? 'primary' : 'secondary'}}" bindtap="relationship" data-value="">全部</button><button wx:for="{{relationships}}" wx:key="*this" class="{{relationship === item ? 'primary' : 'secondary'}}" bindtap="relationship" data-value="{{item}}">{{item}}</button></view><view class="muted">以 BG 和 GL 为主，也可筛选 BL。风格分类与方向标签独立。</view>
   <input class="search" placeholder="搜索角色名称、标签或简介" value="{{search}}" bindinput="search" />
   <scroll-view scroll-x class="category-strip"><button class="chip {{!category ? 'selected' : ''}}" bindtap="category" data-category="">全部</button><button wx:for="{{categories}}" wx:key="*this" class="chip {{category === item ? 'selected' : ''}}" bindtap="category" data-category="{{item}}">{{item}}</button></scroll-view>
   <view class="row"><button class="{{sort === 'new' ? 'primary' : 'secondary'}}" bindtap="sort" data-sort="new">最新上架</button><button class="{{sort === 'hot' ? 'primary' : 'secondary'}}" bindtap="sort" data-sort="hot">热度排行</button><button class="{{favorites ? 'primary' : 'secondary'}}" bindtap="favorites">我的收藏</button></view>
   <view class="muted">热度按下载人数×2＋收藏数排序；同一用户重复下载只计一次。</view>
   <view wx:if="{{loading ? false : freeCards.length === 0}}" class="card muted">暂无匹配角色，试试其他分类或关键词。</view>
   <view class="card free-card" wx:for="{{freeCards}}" wx:key="id">
-    <image wx:if="{{item.cover}}" class="cover" src="{{item.cover}}" mode="aspectFill" /><view wx:else class="avatar">{{item.symbol}}</view><view class="badge">免费 · {{item.tag}}</view>
+    <image wx:if="{{item.cover}}" class="cover" src="{{item.cover}}" mode="aspectFill" /><view wx:else class="avatar">{{item.symbol}}</view><view class="badge">{{item.relationship || "BG"}} · 免费 · {{item.tag}}</view>
     <view class="section">{{item.name}}</view><view class="subtitle">{{item.intro}}</view>
     <view class="muted">{{item.category}} · {{item.downloads}} 人下载 · {{item.favorites}} 人收藏</view><button class="text-button" bindtap="favorite" data-id="{{item.id}}">{{item.favorite ? "♥ 已收藏" : "♡ 收藏角色"}}</button><button class="secondary" bindtap="viewCard" data-id="{{item.id}}">查看角色卡</button>
   </view>

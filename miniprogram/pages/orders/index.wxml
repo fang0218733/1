@@ -4,10 +4,11 @@
   <view class="filters"><button wx:for="{{filters}}" wx:key="*this" class="{{active === item ? 'primary' : 'secondary'}}" bindtap="select" data-status="{{item}}">{{item}}</button></view>
   <view class="card" wx:for="{{orders}}" wx:key="id">
     <view class="row"><view class="badge">{{item.demo ? "演示 · " : ""}}{{item.status}}</view><text class="muted">¥{{item.price}}</text></view>
-    <view class="section">{{item.name}}</view><view class="muted">{{item.privateOrder ? "私人定制 · 不公开" : "普通定制"}}</view><view wx:if="{{item.requirements}}" class="persona">具体要求：{{item.requirements}}</view><view class="muted">{{item.id}}</view><view class="muted">{{item.date}}</view>
+    <view class="section">{{item.name}}</view><view wx:if="{{!item.type}}" class="badge">{{item.relationship || "BG"}}</view><view wx:if="{{!item.type}}" class="muted">{{item.privateOrder ? "私人定制 · 不公开" : "普通定制"}}</view><view wx:if="{{item.requirements}}" class="persona">具体要求：{{item.requirements}}</view><view class="muted">{{item.id}}</view><view class="muted">{{item.date}}</view>
     <view wx:if="{{item.card}}" class="persona" selectable="{{true}}">{{item.card}}</view>
+    <view wx:if="{{item.biography}}" class="persona"><view class="section">人物生平</view>{{item.biography}}</view><view wx:if="{{item.worldView}}" class="persona"><view class="section">世界观</view>{{item.worldView}}</view><view wx:if="{{item.worldBackground}}" class="persona"><view class="section">世界背景</view>{{item.worldBackground}}</view>
     <button wx:if="{{item.card}}" class="primary" bindtap="copy" data-id="{{item.id}}">复制成品人设卡</button>
-    <view wx:else class="muted">{{item.status === '待处理' ? '已收到本地答案，等待管理员处理。' : '正在生成或审核人设，完成后可在这里查看。'}}</view>
+    <view wx:elif="{{item.type === 'membership'}}" class="muted">会员购买未支付不会发放额度，当前真实购买未开放。</view><view wx:else class="muted">{{item.status === '待处理' ? '已收到本地答案，等待管理员处理。' : '正在生成或审核人设，完成后可在这里查看。'}}</view>
   </view>
   <view wx:if="{{!orders.length}}" class="card muted">暂无此状态订单，去描绘你的专属角色吧。</view>
   <view class="error" wx:if="{{error}}">{{error}}</view><button class="secondary" bindtap="home">前往专属定制</button>
