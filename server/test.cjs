@@ -65,7 +65,7 @@ test('最终稿完整加入大厅，旧数据库新增一次，不覆盖管理�
  const s=new Store(':memory:');try{
  s.put('meta','seeded',true);s.put('cards','lin',{id:'lin',name:'管理员修改',published:false});
  let d=new Domain(s);const card=d.cards({relationship:'BG',search:'裴砚声'})[0];assert.ok(card);assert.ok(card.card.includes('06 对话示例与开场'));assert.ok(card.card.includes('今天早餐有两个选择'));assert.equal(s.get('cards','lin').name,'管理员修改');assert.equal(s.get('cards','lin').published,false);
- d.saveCard({...card,published:false});d=new Domain(s);assert.equal(d.cards({search:'裴砚声'}).length,0);assert.equal(s.list('cards').filter(c=>c.id===card.id).length,1);
+ d.saveCard({...card,published:false});d=new Domain(s);assert.equal(d.cards({search:'裴砚声'}).length,1);assert.equal(s.list('cards').filter(c=>c.id===card.id).length,1);
  }finally{s.close();}
 });
 test('明确公开选择：未选不能提交，仅自己可见不加价也不可发布，公开须审核交付',()=>{
@@ -105,11 +105,17 @@ test('各档ZIP文件包完整性，缺项拒绝，下载权限限制为订单�
  }finally{await new Promise(r=>server.close(r));s.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
 test('完整示例卡结构、自由主控说明与旧BL分类修正，保留下架和自定义文稿',()=>{
- const cards=require('../miniprogram/data/free-cards'),upgrade=require('../miniprogram/data/catalog-upgrade'),legacy=require('../miniprogram/data/legacy-free-text');
+ const cards=require('../miniprogram/data/paired-cards'),upgrade=require('../miniprogram/data/catalog-upgrade'),legacy=require('../miniprogram/data/legacy-free-text');
  for(const c of cards.slice(0,3)){assert.ok(c.card.length>4000);for(const section of ['01 ','02 ','03 ','04 ','05 ','06 ','可自行选择','默认开场','可替换的轻松开场'])assert.ok(c.card.includes(section));}
  const pei=cards.find(c=>c.id==='pei-yan-sheng-jiang-zhi-yi');assert.equal(pei.relationship,'BG');assert.ok(pei.card.includes('可自行选择扮演裴砚声或姜知宜'));assert.ok(pei.card.includes('所谓“地下恋嫂子”'));
  const corrected=upgrade({...pei,relationship:'BL'},pei);assert.equal(corrected.relationship,'BG');
  const expanded=upgrade({id:'lin',card:legacy.lin,published:false,cover:'/media/custom.png'},cards[0]);assert.ok(expanded.card.length>4000);assert.equal(expanded.published,false);assert.equal(expanded.cover,'/media/custom.png');
  const custom=upgrade({id:'lin',card:'管理员自行改写的稿件',published:true},cards[0]);assert.equal(custom.card,'管理员自行改写的稿件');
- const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards',pei.id,{...pei,relationship:'BL',published:true});const d=new Domain(s);assert.equal(d.cards({relationship:'BL',search:'裴砚声'}).length,0);assert.equal(d.cards({relationship:'BG',search:'裴砚声'}).length,1);}finally{s.close();}
+ const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards',pei.id,{...pei,relationship:'BL',published:true});const d=new Domain(s);assert.equal(d.cards({relationship:'BL',search:'裴砚声'}).length,0);assert.equal(d.cards({relationship:'BG',search:'裴砚声'}).length,2);}finally{s.close();}
+});
+test('八张固定人物视角、BG与GL交叉筛选、旧成对卡隐藏且角色主线保留',()=>{
+ const cards=require('../miniprogram/data/free-cards');assert.equal(cards.length,8);assert.equal(new Set(cards.map(c=>c.id)).size,8);assert.equal(cards.filter(c=>c.perspective==='male').length,3);assert.equal(cards.filter(c=>c.perspective==='female').length,5);
+ for(const c of cards){assert.ok(c.card.includes('你就是故事中的'+c.userRole));assert.ok(c.card.includes('模型扮演'+c.modelRole));assert.ok(c.card.includes('默认开场'));assert.ok(!/自行选择|交换主控|切换主控|更改主控/.test(c.card));}
+ const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards','lin',{id:'lin',card:'旧成对卡',published:true});s.put('favorites','old-favorite',{user:'u',cardId:'lin'});const d=new Domain(s);assert.equal(d.cards().length,8);assert.ok(!d.cards().some(c=>c.id==='lin'));assert.equal(d.cards({relationship:'GL',perspective:'male'}).length,0);assert.equal(d.cards({relationship:'GL',perspective:'female'}).length,2);assert.equal(d.cards({relationship:'BG',perspective:'male'}).length,3);assert.equal(d.cards({favorites:true},'u').length,2);assert.equal(s.get('cards','lin').retired,true);assert.ok(s.get('catalogBackups','lin-before-split'));}
+ finally{s.close();}
 });

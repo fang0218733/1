@@ -68,7 +68,7 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
         return send({token:t,mode:demo?'demo':'live'});
       }
       if(p==='/api/cards' && req.method==='GET') {
-        const user=optionalCustomer(req);const list=domain.cards({search:url.searchParams.get('search')||'',category:url.searchParams.get('category')||'',relationship:url.searchParams.get('relationship')||'',sort:url.searchParams.get('sort')||'new',favorites:url.searchParams.get('favorites')==='true'},user);
+        const user=optionalCustomer(req);const list=domain.cards({perspective:url.searchParams.get('perspective')||'',search:url.searchParams.get('search')||'',category:url.searchParams.get('category')||'',relationship:url.searchParams.get('relationship')||'',sort:url.searchParams.get('sort')||'new',favorites:url.searchParams.get('favorites')==='true'},user);
         const page=Math.max(0,Math.min(Number(url.searchParams.get('page'))||0,10000));return send({items:list.slice(page*20,page*20+20),hasMore:list.length>(page+1)*20,categories:[...new Set(domain.cards().map(c=>c.category))]});
       }
       const cardMatch=/^\/api\/cards\/([\w-]{1,80})\/(favorite|download)$/.exec(p);

@@ -6,6 +6,8 @@
   <view class="section">免费角色卡 <text class="muted">FREE COLLECTION</text></view>
   <view class="subtitle">先遇见一个喜欢的角色。免费查看并复制，用于你的陪聊设定。</view>
   <view class="row"><button class="{{!relationship ? 'primary' : 'secondary'}}" bindtap="relationship" data-value="">全部</button><button wx:for="{{relationships}}" wx:key="*this" class="{{relationship === item ? 'primary' : 'secondary'}}" bindtap="relationship" data-value="{{item}}">{{item}}</button></view><view class="muted">以 BG 和 GL 为主，也可筛选 BL。风格分类与方向标签独立。</view>
+  <view class="row"><button class="{{!perspective ? 'primary' : 'secondary'}}" bindtap="perspective" data-value="">全部视角</button><button class="{{perspective === 'male' ? 'primary' : 'secondary'}}" bindtap="perspective" data-value="male">代入男主</button><button class="{{perspective === 'female' ? 'primary' : 'secondary'}}" bindtap="perspective" data-value="female">代入女主</button></view>
+  <view class="muted">选择你在故事中的身份，每张卡固定一个视角。GL 两位女主按姓名分别选择。</view>
   <input class="search" placeholder="搜索角色名称、标签或简介" value="{{search}}" bindinput="search" />
   <scroll-view scroll-x class="category-strip"><button class="chip {{!category ? 'selected' : ''}}" bindtap="category" data-category="">全部</button><button wx:for="{{categories}}" wx:key="*this" class="chip {{category === item ? 'selected' : ''}}" bindtap="category" data-category="{{item}}">{{item}}</button></scroll-view>
   <view class="row"><button class="{{sort === 'new' ? 'primary' : 'secondary'}}" bindtap="sort" data-sort="new">最新上架</button><button class="{{sort === 'hot' ? 'primary' : 'secondary'}}" bindtap="sort" data-sort="hot">热度排行</button><button class="{{favorites ? 'primary' : 'secondary'}}" bindtap="favorites">我的收藏</button></view>
@@ -13,7 +15,7 @@
   <view wx:if="{{loading ? false : freeCards.length === 0}}" class="card muted">暂无匹配角色，试试其他分类或关键词。</view>
   <view class="card free-card" wx:for="{{freeCards}}" wx:key="id">
     <image wx:if="{{item.cover}}" class="cover" src="{{item.cover}}" mode="aspectFill" /><view wx:else class="avatar">{{item.symbol}}</view><view class="badge">{{item.relationship || "BG"}} · 免费 · {{item.tag}}</view>
-    <view class="section">{{item.name}}</view><view class="subtitle">{{item.intro}}</view>
+    <view class="section">{{item.name}} · {{item.perspective === "male" ? "代入男主" : item.perspective === "female" ? "代入女主" : "角色卡"}}</view><view wx:if="{{item.userRole}}" class="notice">你扮演：{{item.userRole}}<view>模型扮演：{{item.modelRole}}</view></view><view class="subtitle">{{item.intro}}</view>
     <view class="muted">{{item.category}} · {{item.downloads}} 人下载 · {{item.favorites}} 人收藏</view><button class="text-button" bindtap="favorite" data-id="{{item.id}}">{{item.favorite ? "♥ 已收藏" : "♡ 收藏角色"}}</button><button class="secondary" bindtap="viewCard" data-id="{{item.id}}">查看角色卡</button>
   </view>
   <view class="card" wx:if="{{activeCard}}"><view class="section">{{activeCard.name}} · 免费人设卡</view><view class="card-content">{{activeCard.card}}</view><button class="primary" bindtap="copyCard">免费复制角色卡</button><button class="secondary" bindtap="download">下载人设文本文件</button><button class="text-button" bindtap="closeCard">收起</button></view>

@@ -24,7 +24,7 @@ function seedOrders() {
 }
 function gallery() {
   const data=wx.getStorageSync('persona-gallery-v1') || {favorites:[],downloads:[],cards:[]};
-  let changed=false;
+  let changed=false;const retired=require('../data/paired-cards').map(c=>c.id);if(data.cards.some(c=>retired.includes(c.id))){data.retiredCards=(data.retiredCards||[]).concat(data.cards.filter(c=>retired.includes(c.id)));data.cards=data.cards.filter(c=>!retired.includes(c.id));changed=true;}for(const id of retired){if(data.favorites.includes(id)){data.favorites=data.favorites.filter(x=>x!==id).concat(freeCards.filter(c=>c.pairId===id).map(c=>c.id));changed=true;}}
   freeCards.forEach(c=>{const index=data.cards.findIndex(old=>old.id===c.id);const old=index>=0?data.cards[index]:null;const updated=require('../data/catalog-upgrade')(old,c);if(updated!==old){if(index<0)data.cards.push(updated);else data.cards[index]=updated;changed=true;}});
   if(changed)saveGallery(data);
   return data;
@@ -39,7 +39,7 @@ module.exports = {
   bindReferral: code => remote.enabled ? remote.request('/api/referrals/bind','POST',{code},true) : Promise.resolve({bound:false}),
   getCards: async (options = {}) => {
     if (remote.enabled) { const params=Object.keys(options).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(options[k])).join('&'); const result=await remote.request('/api/cards?'+params,'GET',{},!!options.favorites);result.items=result.items.map(c=>({...c,cover:c.cover?remote.base+c.cover:''}));return result; }
-    const data=gallery();let items=data.cards.filter(c=>c.published && (!options.relationship||(c.relationship||'BG')===options.relationship)&&(!options.category||c.category===options.category) && (!options.search||[c.name,c.tag,c.intro].join(' ').includes(options.search))).map(c=>({...c, favorite:data.favorites.includes(c.id),downloads:data.downloads.includes(c.id)?1:0,favorites:data.favorites.includes(c.id)?1:0}));
+    const data=gallery();let items=data.cards.filter(c=>c.published && (!options.perspective||c.perspective===options.perspective) && (!options.relationship||(c.relationship||'BG')===options.relationship)&&(!options.category||c.category===options.category) && (!options.search||[c.name,c.tag,c.intro].join(' ').includes(options.search))).map(c=>({...c, favorite:data.favorites.includes(c.id),downloads:data.downloads.includes(c.id)?1:0,favorites:data.favorites.includes(c.id)?1:0}));
     if(options.favorites)items=items.filter(c=>c.favorite);if(options.sort==='hot')items.sort((a,b)=>(b.downloads*2+b.favorites)-(a.downloads*2+a.favorites));
     const page=Number(options.page)||0;return {items:items.slice(page*20,page*20+20),hasMore:items.length>(page+1)*20,categories:[...new Set(data.cards.filter(c=>c.published).map(c=>c.category))]};
   },
