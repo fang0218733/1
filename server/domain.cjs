@@ -10,10 +10,9 @@ class Domain {
     const legacySeeded=!!store.get('meta','seeded');
     store.transaction(()=>{
       seeds.forEach((c,i)=>{
-        const key='catalog-import-'+c.id;
-        if(store.get('meta',key))return;
-        // Preserve existing edits/downlisting and legacy deletions; add new catalog cards once.
-        if(!store.get('cards',c.id)&&(!legacySeeded||i>=3))store.put('cards',c.id,{...c,category:c.category||['治愈','活泼','沉稳'][i]||'其他',cover:'',published:true,createdAt:Date.now()+i});
+        const key='catalog-import-'+c.id,old=store.get('cards',c.id);
+        if(old){const updated=require('../miniprogram/data/catalog-upgrade')(old,c);if(updated!==old){store.put('catalogBackups',c.id+'-'+c.catalogVersion,old);store.put('cards',c.id,updated);}}
+        else if(!store.get('meta',key)&&(!legacySeeded||i>=3))store.put('cards',c.id,{...c,cover:'',published:true,createdAt:Date.now()+i});
         store.put('meta',key,true);
       });
       store.put('meta','seeded',true);

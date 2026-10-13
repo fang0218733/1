@@ -104,3 +104,12 @@ test('各档ZIP文件包完整性，缺项拒绝，下载权限限制为订单�
   const res=await fetch(url,{headers:{Authorization:'Bearer '+await token('owner')}});assert.equal(res.status,200);assert.equal(res.headers.get('content-type'),'application/zip');const bytes=Buffer.from(await res.arrayBuffer());assert.equal(bytes.readUInt32LE(0),0x04034b50);assert.equal(bytes.readUInt16LE(bytes.length-22+10),7);assert.ok(bytes.includes(Buffer.from('完整整合稿')));assert.ok(bytes.includes(Buffer.from('性格与表达方式')));assert.ok(!bytes.includes(Buffer.from('支付凭证')) || bytes.includes(Buffer.from('不包含客户问卷')));
  }finally{await new Promise(r=>server.close(r));s.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+test('完整示例卡结构、自由主控说明与旧BL分类修正，保留下架和自定义文稿',()=>{
+ const cards=require('../miniprogram/data/free-cards'),upgrade=require('../miniprogram/data/catalog-upgrade'),legacy=require('../miniprogram/data/legacy-free-text');
+ for(const c of cards.slice(0,3)){assert.ok(c.card.length>4000);for(const section of ['01 ','02 ','03 ','04 ','05 ','06 ','可自行选择','默认开场','可替换的轻松开场'])assert.ok(c.card.includes(section));}
+ const pei=cards.find(c=>c.id==='pei-yan-sheng-jiang-zhi-yi');assert.equal(pei.relationship,'BG');assert.ok(pei.card.includes('可自行选择扮演裴砚声或姜知宜'));assert.ok(pei.card.includes('所谓“地下恋嫂子”'));
+ const corrected=upgrade({...pei,relationship:'BL'},pei);assert.equal(corrected.relationship,'BG');
+ const expanded=upgrade({id:'lin',card:legacy.lin,published:false,cover:'/media/custom.png'},cards[0]);assert.ok(expanded.card.length>4000);assert.equal(expanded.published,false);assert.equal(expanded.cover,'/media/custom.png');
+ const custom=upgrade({id:'lin',card:'管理员自行改写的稿件',published:true},cards[0]);assert.equal(custom.card,'管理员自行改写的稿件');
+ const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards',pei.id,{...pei,relationship:'BL',published:true});const d=new Domain(s);assert.equal(d.cards({relationship:'BL',search:'裴砚声'}).length,0);assert.equal(d.cards({relationship:'BG',search:'裴砚声'}).length,1);}finally{s.close();}
+});

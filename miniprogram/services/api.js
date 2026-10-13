@@ -25,7 +25,7 @@ function seedOrders() {
 function gallery() {
   const data=wx.getStorageSync('persona-gallery-v1') || {favorites:[],downloads:[],cards:[]};
   let changed=false;
-  freeCards.forEach((c,i)=>{if(!data.cards.some(old=>old.id===c.id)){data.cards.push({...c,category:c.category||['治愈','活泼','沉稳'][i]||'其他',cover:'',published:true});changed=true;}});
+  freeCards.forEach(c=>{const index=data.cards.findIndex(old=>old.id===c.id);const old=index>=0?data.cards[index]:null;const updated=require('../data/catalog-upgrade')(old,c);if(updated!==old){if(index<0)data.cards.push(updated);else data.cards[index]=updated;changed=true;}});
   if(changed)saveGallery(data);
   return data;
 }
