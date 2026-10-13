@@ -53,14 +53,16 @@ class Domain {
       normalized[q.id] = a;
     }
     const privateOrder = p.id === 'private';
-    if (!privateOrder && input.publicAcknowledged !== true) fail('请确认普通定制成品默认公开的说明');
+    const publicationChoice=privateOrder?'hidden':input.publicationChoice;
+    if(!['public','hidden'].includes(publicationChoice))fail('请选择公开到免费大厅或仅自己可见');
+    if(privateOrder&&input.publicationChoice==='public')fail('私人定制禁止公开');
     if (!/^[\w-]{16,100}$/.test(input.requestId || '')) fail('提交标识无效');
     const id = this.key(user,input.requestId);
-    const payload = { packageId:p.id,relationship:this.relationship(input.relationship),answers:normalized,privateOrder,requirements:text(input.requirements || '',500,false),publicAcknowledged:!privateOrder,policyVersion:'public-v1' };
+    const payload = { packageId:p.id,relationship:this.relationship(input.relationship),answers:normalized,privateOrder,requirements:text(input.requirements || '',500,false),publicationChoice,publicAcknowledged:publicationChoice==='public',policyVersion:'publication-choice-v2',publicationConsent:{choice:publicationChoice,version:'publication-choice-v2'} };
     const fingerprint = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
     return this.s.transaction(() => {
       const old = this.s.get('orders',id); if (old) { if (old.fingerprint !== fingerprint) fail('提交标识已使用，请重新开始',409); return this.customerOrder(old); }
-      const order = { ...payload,id,owner:user,fingerprint,name:p.name,price:p.price,quoteSnapshot:{amount:p.price,currency:'CNY',capturedAt:new Date().toISOString()},questionVersion:packages.questionVersion,questionSnapshot:questions[p.id],paymentMode:'manual',paymentStatus:'待确认',productionStatus:'待处理',payment:'manual_unconfirmed',status:'待确认需求单',terms:{deliveryAt:'',revisions:null,refundConditions:''},audit:[],date:new Date().toISOString(),createdAt:Math.max(Date.now(),(this.s.get('meta','lastOrderTime')||0)+1),revision:0,card:'',generated:'',generationError:'',publicCardId:'' };
+      const order = { ...payload,publicationConsent:{...payload.publicationConsent,confirmedAt:new Date().toISOString()},id,owner:user,fingerprint,name:p.name,price:p.price,quoteSnapshot:{amount:p.price,currency:'CNY',capturedAt:new Date().toISOString()},questionVersion:packages.questionVersion,questionSnapshot:questions[p.id],paymentMode:'manual',paymentStatus:'待确认',productionStatus:'待处理',payment:'manual_unconfirmed',status:'待确认需求单',terms:{deliveryAt:'',revisions:null,refundConditions:''},audit:[],date:new Date().toISOString(),createdAt:Math.max(Date.now(),(this.s.get('meta','lastOrderTime')||0)+1),revision:0,card:'',generated:'',generationError:'',publicCardId:'' };
       if(input.useMembership===true)fail('当前人工确认流程不使用会员额度');this.s.put('meta','lastOrderTime',order.createdAt);this.s.put('orders',id,order); return this.customerOrder(order);
     });
   }
@@ -115,7 +117,7 @@ class Domain {
       const o=this.order(id);if(o.paymentStatus!=='已人工核实'||!['待处理','制作中','已交付'].includes(o.productionStatus))fail('核实收款且未取消后才能交付');if(o.type==='membership')fail('会员订单不能交付人物卡');if(o.payment==='awaiting_topup')fail('私人差价尚未支付，不能交付'); if(input.revision!==o.revision) fail('订单已变化，请刷新后再审核',409);
       const card=text(input.card,12000); let parts={};if(o.packageId==='ultra')for(const key of ['biography','worldView','worldBackground'])parts[key]=text(input[key],8000);const completeCard=[card,...Object.entries(parts).map(([key,value])=>({'biography':'人物生平','worldView':'世界观','worldBackground':'世界背景'}[key])+'\n'+value)].join('\n\n'); const publish=input.publish===true;
       if(o.privateOrder && publish) fail('私人定制禁止公开',403);
-      if(publish && !o.publicAcknowledged) fail('没有公开告知确认，不能发布',403);
+      if(publish && (o.publicationChoice!=='public'||o.publicationConsent?.version!=='publication-choice-v2')) fail('没有公开告知确认，不能发布',403);
       const publicId='order-'+id;
       if(publish) { this.s.put('cards',publicId,{ id:publicId,orderId:id,relationship:o.relationship||'BG',name:text(input.name,60),category:text(input.category,40),tag:text(input.tag,100),intro:text(input.intro,300),card:completeCard,cover:'',symbol:input.name.slice(0,1),published:true,createdAt:Date.now() }); o.publicCardId=publicId; }
       else { this.s.remove('cards',publicId); o.publicCardId=''; }

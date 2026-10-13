@@ -2,6 +2,7 @@
 <view class="notice">{{backendEnabled ? '私聊核对编号、报价和交付安排；提交不代表已付款。收款由管理员核实，成品人工制作交付。' : '仅本地模拟，不代表真实收款、管理员权限或跨设备同步。示例状态均为演示。'}}</view>
 <view class="filters"><button wx:for="{{filters}}" wx:key="*this" class="{{active === item ? 'primary' : 'secondary'}}" bindtap="select" data-status="{{item}}">{{item}}</button></view>
 <view class="card" wx:for="{{orders}}" wx:key="id"><view class="badge">{{item.demo ? '模拟 · ' : ''}}{{item.name}}</view><view class="muted">编号 {{item.id}}</view><view class="muted">创建 {{item.date}} · 题库 {{item.questionVersion}}</view>
+<view class="badge">{{item.publicationChoice === "public" ? "允许审核后公开" : "仅自己可见 / 未明确授权公开"}}</view>
 <view class="section">付款：{{item.paymentStatus || '历史状态待人工核对'}}</view><view class="section">制作：{{item.productionStatus || '历史状态待人工核对'}}</view>
 <view class="muted">提交时报价：{{item.quoteSnapshot ? (item.quoteSnapshot.amount == null ? '价格待确认' : '¥' + item.quoteSnapshot.amount) : '历史报价待核对'}}</view><view wx:if="{{item.agreedQuote}}" class="muted">双方约定报价：¥{{item.agreedQuote.amount}}</view>
 <view wx:if="{{item.terms.deliveryAt}}" class="notice">约定交付：{{item.terms.deliveryAt}}<view>修改次数：{{item.terms.revisions}}</view><view>退款条件：{{item.terms.refundConditions}}</view></view>

@@ -57,14 +57,16 @@ module.exports = {
     if (!validAnswers(id, answers)) return Promise.reject(new Error('请完成所有题目'));
     if (typeof options.requirements !== 'undefined' && (typeof options.requirements !== 'string' || options.requirements.length > 500)) return Promise.reject(new Error('具体要求最多500字'));
     options={...options,privateOrder:id==='private'};
-    if (!options.privateOrder && options.publicAcknowledged !== true) return Promise.reject(new Error('请确认普通定制成品默认公开说明'));
+    if(options.privateOrder&&options.publicationChoice==='public')throw new Error('私人定制禁止公开');
+    options.publicationChoice=options.privateOrder?'hidden':options.publicationChoice;
+    if(!['public','hidden'].includes(options.publicationChoice))throw new Error('请选择公开到免费大厅或仅自己可见');
     if(remote.enabled) { await invitation.ensure();const draft=loadDraft(id);if(!draft.requestId){draft.requestId='request-'+Date.now()+'-'+Math.random().toString(36).slice(2);saveDraft(id,draft);}return remote.request('/api/orders','POST',{packageId:id,answers,...options,requestId:draft.requestId},true).then(order=>{saveDraft(id,{orderId:order.id});return order;}); }
     if(options.useMembership)return Promise.reject(new Error('本地演示没有真实会员额度'));
     const p = getPackage(id), data = read();
     const draft = data.drafts[id];
     if (draft && draft.orderId) return Promise.resolve(data.orders.find(o => o.id === draft.orderId));
-    const order = { id: 'DEMO-' + Date.now() + '-' + Math.random().toString(36).slice(2,10), packageId: id, name: p.name, price:p.price,quoteSnapshot:{amount:p.price,currency:'CNY',capturedAt:new Date().toISOString()},questionVersion:config.questionVersion,questionSnapshot:banks[id],paymentStatus:'待确认',productionStatus:'待处理',paymentMode:'manual',terms:{deliveryAt:'',revisions:null,refundConditions:''}, relationship: options.relationship || 'BG', privateOrder: !!options.privateOrder, publicAcknowledged: !!options.publicAcknowledged, requirements: (options.requirements || '').trim(), status: '待确认需求单', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
-    data.orders.unshift(order); data.drafts[id] = { answers: order.answers, index: 0, privateOrder: order.privateOrder, requirements: order.requirements, publicAcknowledged: order.publicAcknowledged, orderId: order.id }; write(data); return Promise.resolve(order);
+    const order = { id: 'DEMO-' + Date.now() + '-' + Math.random().toString(36).slice(2,10), packageId: id, name: p.name, price:p.price,quoteSnapshot:{amount:p.price,currency:'CNY',capturedAt:new Date().toISOString()},questionVersion:config.questionVersion,questionSnapshot:banks[id],paymentStatus:'待确认',productionStatus:'待处理',paymentMode:'manual',terms:{deliveryAt:'',revisions:null,refundConditions:''}, relationship: options.relationship || 'BG', privateOrder: !!options.privateOrder, publicationChoice:options.publicationChoice,publicationConsent:{choice:options.publicationChoice,version:'publication-choice-v2',confirmedAt:new Date().toISOString()},publicAcknowledged:options.publicationChoice==='public', requirements: (options.requirements || '').trim(), status: '待确认需求单', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
+    data.orders.unshift(order); data.drafts[id] = { answers: order.answers, index: 0, privateOrder: order.privateOrder, requirements: order.requirements, publicationChoice:order.publicationChoice,publicAcknowledged: order.publicAcknowledged, orderId: order.id }; write(data); return Promise.resolve(order);
   },
   clearDraft: id => { const data = read(); delete data.drafts[id]; write(data); }
 };

@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const Store=require('./store.cjs'),{Domain}=require('./domain.cjs'),{createApp}=require('./index.cjs');
 const config=require('../miniprogram/data/config'),bank=require('../miniprogram/data/questions');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-function input(id='basic',requestId='manual-demand-request-unique'){return {packageId:id,requestId,answers:Object.fromEntries(bank[id].map(q=>[q.id,['由设计师决定']])),publicAcknowledged:id!=='private'};}
+function input(id='basic',requestId='manual-demand-request-unique'){return {packageId:id,requestId,answers:Object.fromEntries(bank[id].map(q=>[q.id,['由设计师决定']])),publicationChoice:id==='private'?'hidden':'public'};}
 function quote(d,o,amount=12.8){return d.manage(o.id,{action:'quote',revision:o.revision,amount,deliveryAt:'2026-11-01T18:00:00+08:00',revisions:2,refundConditions:'未开始制作可协商全额退款，制作后按双方约定处理'});}
 test('三档独立价格、题库与报价快照、需求幂等及客户隔离',()=>{
  const s=new Store(':memory:'),d=new Domain(s);try{
@@ -65,5 +65,18 @@ test('最终稿完整加入大厅，旧数据库新增一次，不覆盖管理�
  s.put('meta','seeded',true);s.put('cards','lin',{id:'lin',name:'管理员修改',published:false});
  let d=new Domain(s);const card=d.cards({relationship:'BG',search:'裴砚声'})[0];assert.ok(card);assert.ok(card.card.includes('06 对话示例与开场'));assert.ok(card.card.includes('今天早餐有两个选择'));assert.equal(s.get('cards','lin').name,'管理员修改');assert.equal(s.get('cards','lin').published,false);
  d.saveCard({...card,published:false});d=new Domain(s);assert.equal(d.cards({search:'裴砚声'}).length,0);assert.equal(s.list('cards').filter(c=>c.id===card.id).length,1);
+ }finally{s.close();}
+});
+test('明确公开选择：未选不能提交，仅自己可见不加价也不可发布，公开须审核交付',()=>{
+ const s=new Store(':memory:'),d=new Domain(s);try{
+  const noChoice=input();delete noChoice.publicationChoice;noChoice.publicAcknowledged=true;assert.throws(()=>d.submit('none',noChoice),/请选择公开/);
+  let hidden=d.submit('hidden',{...input(),publicationChoice:'hidden'});assert.equal(hidden.price,12.8);assert.equal(hidden.privateOrder,false);assert.equal(hidden.publicationConsent.choice,'hidden');
+  hidden=quote(d,hidden);hidden=d.manage(hidden.id,{action:'confirmReceipt',revision:hidden.revision,amount:12.8});
+  assert.throws(()=>d.review(hidden.id,{revision:hidden.revision,card:'不公开的成品',publish:true}),/不能发布/);
+  hidden=d.review(hidden.id,{revision:hidden.revision,card:'仅本人可领',publish:false});assert.equal(d.orders('hidden')[0].card,'仅本人可领');assert.ok(!d.cards().some(c=>c.orderId===hidden.id));
+  assert.throws(()=>d.submit('private',{...input('private'),publicationChoice:'public'}),/禁止公开/);
+  let visible=d.submit('visible',input());assert.ok(visible.publicationConsent.confirmedAt);assert.ok(!d.cards().some(c=>c.orderId===visible.id));visible=quote(d,visible);visible=d.manage(visible.id,{action:'confirmReceipt',revision:visible.revision,amount:12.8});
+  visible=d.review(visible.id,{revision:visible.revision,card:'可公开成品',publish:true,name:'公开角色',category:'都市',tag:'温柔',intro:'审核后成品'});assert.ok(d.cards().some(c=>c.orderId===visible.id));
+  const old=d.order(visible.id);delete old.publicationChoice;delete old.publicationConsent;s.put('orders',old.id,old);assert.throws(()=>d.review(old.id,{revision:old.revision,card:'旧状态',publish:true}),/不能发布/);
  }finally{s.close();}
 });
