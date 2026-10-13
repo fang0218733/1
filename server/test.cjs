@@ -64,8 +64,8 @@ test('支付凭证归属、敏感图片私有、上传不改变付款，邀请�
 test('最终稿完整加入大厅，旧数据库新增一次，不覆盖管理员改动或下架',()=>{
  const s=new Store(':memory:');try{
  s.put('meta','seeded',true);s.put('cards','lin',{id:'lin',name:'管理员修改',published:false});
- let d=new Domain(s);const card=d.cards({relationship:'BG',search:'裴砚声'})[0];assert.ok(card);assert.ok(card.card.includes('06 对话示例与开场'));assert.ok(card.card.includes('今天早餐有两个选择'));assert.equal(s.get('cards','lin').name,'管理员修改');assert.equal(s.get('cards','lin').published,false);
- d.saveCard({...card,published:false});d=new Domain(s);assert.equal(d.cards({search:'裴砚声'}).length,1);assert.equal(s.list('cards').filter(c=>c.id===card.id).length,1);
+ let d=new Domain(s);const card=d.cards({relationship:'BG',search:'裴砚声'})[0];assert.ok(card);assert.ok(card.card.includes('06 对话示例与开场'));assert.ok(card.card.includes('17岁成为练习生'));assert.equal(s.get('cards','lin').name,'管理员修改');assert.equal(s.get('cards','lin').published,false);
+ d.saveCard({...card,published:false});d=new Domain(s);assert.equal(d.cards({search:'裴砚声'}).length,0);assert.equal(s.list('cards').filter(c=>c.id===card.id).length,1);
  }finally{s.close();}
 });
 test('明确公开选择：未选不能提交，仅自己可见不加价也不可发布，公开须审核交付',()=>{
@@ -111,11 +111,19 @@ test('完整示例卡结构、自由主控说明与旧BL分类修正，保留下
  const corrected=upgrade({...pei,relationship:'BL'},pei);assert.equal(corrected.relationship,'BG');
  const expanded=upgrade({id:'lin',card:legacy.lin,published:false,cover:'/media/custom.png'},cards[0]);assert.ok(expanded.card.length>4000);assert.equal(expanded.published,false);assert.equal(expanded.cover,'/media/custom.png');
  const custom=upgrade({id:'lin',card:'管理员自行改写的稿件',published:true},cards[0]);assert.equal(custom.card,'管理员自行改写的稿件');
- const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards',pei.id,{...pei,relationship:'BL',published:true});const d=new Domain(s);assert.equal(d.cards({relationship:'BL',search:'裴砚声'}).length,0);assert.equal(d.cards({relationship:'BG',search:'裴砚声'}).length,2);}finally{s.close();}
+ const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards',pei.id,{...pei,relationship:'BL',published:true});const d=new Domain(s);assert.equal(d.cards({relationship:'BL',search:'裴砚声'}).length,0);assert.equal(d.cards({relationship:'BG',search:'裴砚声'}).length,1);}finally{s.close();}
 });
-test('八张固定人物视角、BG与GL交叉筛选、旧成对卡隐藏且角色主线保留',()=>{
+test('八张独立角色、性别与BG/GL筛选、用户自由形象和主线保留',()=>{
  const cards=require('../miniprogram/data/free-cards');assert.equal(cards.length,8);assert.equal(new Set(cards.map(c=>c.id)).size,8);assert.equal(cards.filter(c=>c.perspective==='male').length,3);assert.equal(cards.filter(c=>c.perspective==='female').length,5);
- for(const c of cards){assert.ok(c.card.includes('你就是故事中的'+c.userRole));assert.ok(c.card.includes('模型扮演'+c.modelRole));assert.ok(c.card.includes('默认开场'));assert.ok(!/自行选择|交换主控|切换主控|更改主控/.test(c.card));}
+ for(const c of cards){assert.ok(c.card.includes('用户以自己的形象取代原故事另一方'));assert.equal(c.name,c.modelRole);assert.ok(c.card.includes('模型只扮演'+c.modelRole));assert.ok(c.card.includes('默认开场'));assert.ok(!/自行选择|交换主控|切换主控|更改主控/.test(c.card));}
  const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards','lin',{id:'lin',card:'旧成对卡',published:true});s.put('favorites','old-favorite',{user:'u',cardId:'lin'});const d=new Domain(s);assert.equal(d.cards().length,8);assert.ok(!d.cards().some(c=>c.id==='lin'));assert.equal(d.cards({relationship:'GL',perspective:'male'}).length,0);assert.equal(d.cards({relationship:'GL',perspective:'female'}).length,2);assert.equal(d.cards({relationship:'BG',perspective:'male'}).length,3);assert.equal(d.cards({favorites:true},'u').length,2);assert.equal(s.get('cards','lin').retired,true);assert.ok(s.get('catalogBackups','lin-before-split'));}
  finally{s.close();}
+});
+test('独立角色仅保留自己的人物档案，用户自由替代原另一方，升级旧固定代入缓存',()=>{
+ const cards=require('../miniprogram/data/free-cards'),upgrade=require('../miniprogram/data/catalog-upgrade');
+ const male=cards.find(c=>c.name==='裴砚声'),female=cards.find(c=>c.name==='姜知宜');assert.equal(male.characterGender,'male');assert.equal(female.characterGender,'female');
+ assert.ok(male.card.includes('17岁成为练习生'));assert.ok(!male.card.includes('03 {{user}}的身份与内心'));assert.ok(!male.card.includes('姜知宜'));
+ assert.ok(female.card.includes('收入不算高但能独立生活'));assert.ok(!female.card.includes('17岁成为练习生'));assert.ok(!female.card.includes('裴砚声'));
+ for(const c of cards){assert.equal(c.name,c.modelRole);assert.equal(c.userRole,'自定义形象');assert.ok(c.card.includes('用户姓名、外貌、职业、性格、经历和表达方式均由用户自己塑造'));assert.ok(!c.card.includes('你就是故事中的'));}
+ const old={...male,card:'旧固定人物代入稿',catalogVersion:'fixed-perspective-v1',published:false,cover:'保留封面'};const updated=upgrade(old,male);assert.equal(updated.card,male.card);assert.equal(updated.published,false);assert.equal(updated.cover,old.cover);
 });
