@@ -1,5 +1,5 @@
 <view class="container">
-  <text class="eyebrow">知伴 · 免费角色大厅</text>
+  <text class="eyebrow">yu伴 · 免费角色大厅</text>
   <text class="title">遇见你喜欢的角色</text>
   <view class="subtitle">浏览免费人设，收藏喜欢的角色，复制或下载开启故事。</view>
   <view class="notice">{{backendEnabled ? "免费角色大厅 · 自由浏览与下载" : "本地演示 · 不收款 · 下载人数与收藏仅为本机统计"}}</view>

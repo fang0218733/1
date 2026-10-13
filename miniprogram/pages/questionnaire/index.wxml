@@ -3,7 +3,7 @@
   <progress percent="{{progress}}" stroke-width="4" activeColor="#607f70" backgroundColor="#e5e6df" />
   <view class="card" wx:if="{{question.id}}">
     <view class="badge">{{question.category}} · 第 {{index + 1}} 题</view>
-    <view class="section">{{question.title}}</view>
+    <view wx:if="{{question.parent}}" class="notice">这道细化题根据前面的选择生成。返回修改前题后，相关细化答案需重新选择。</view><view class="section">{{question.title}}</view>
     <view class="muted">{{question.multiple ? '多选 · 可选择多个偏好' : '单选 · 选择最贴近的一项'}}；设计师决定与其他选项互斥</view>
     <button wx:for="{{choices}}" wx:key="value" class="option {{item.checked ? 'checked' : ''}}" bindtap="choose" data-value="{{item.value}}">{{item.checked ? '●' : '○'}}　{{item.value}}</button>
   </view>

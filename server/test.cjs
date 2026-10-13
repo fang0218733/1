@@ -1,137 +1,106 @@
-const {test}=require('node:test');
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const os=require('node:os');
-const path=require('node:path');
-const Store=require('./store.cjs');
-const {Domain}=require('./domain.cjs');
-const {createApp}=require('./index.cjs');
-const bank=require('../miniprogram/data/questions');
-function input(overrides={}) {return {packageId:'basic',requestId:'request-unique-token-123',answers:Object.fromEntries(bank.basic.map(q=>[q.id,['由设计师决定']])),requirements:'避免昵称',privateOrder:false,publicAcknowledged:true,...overrides};}
-test('服务端校验、订单隔离、幂等、生成审核、私人禁止公开及持久化',async()=>{
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'persona-store-'));const file=path.join(dir,'test.sqlite');const store=new Store(file);const d=new Domain(store);
-  assert.throws(()=>d.submit('u',input({publicAcknowledged:false})),/公开/);
-  assert.throws(()=>d.submit('u',input({answers:{}})),/选择/);
-  const order=d.submit('alice',input({price:0,owner:'bob',status:'已完成'}));
-  assert.equal(order.price,12.8);assert.equal(order.status,'待处理');assert.equal(d.orders('bob').length,0);assert.equal(d.orders('alice').length,1);
-  assert.equal(d.submit('alice',input()).id,order.id);
-  assert.throws(()=>d.submit('alice',input({requirements:'不同内容'})),/标识已使用/);
-  let release;const pending=d.generate(order.id,()=>new Promise(r=>{release=r;}));await assert.rejects(d.generate(order.id,async()=> '重复'),/正在生成/);release('虚构成年角色，温柔认真，尊重边界。');const generated=await pending;
-  assert.equal(d.orders('alice')[0].card,'');assert.equal(d.cards().length,3);
-  assert.throws(()=>d.review(order.id,{revision:0,card:'卡'}),/已变化/);
-  const approved=d.review(order.id,{revision:generated.revision,card:generated.generated,publish:true,name:'新角色',category:'治愈',tag:'温柔',intro:'成年人设'});
-  assert.equal(approved.status,'已完成');assert.equal(d.cards().length,4);
-  assert.ok(!JSON.stringify(d.cards()).includes('避免昵称'));
-  d.download('alice','lin');d.download('alice','lin');d.download('bob','lin');assert.equal(d.cards().find(c=>c.id==='lin').downloads,2);
-  d.favorite('alice','lin',true);d.favorite('alice','lin',true);assert.equal(d.cards().find(c=>c.id==='lin').favorites,1);assert.equal(d.cards({favorites:true},'alice').length,1);d.favorite('alice','lin',false);assert.equal(d.cards({favorites:true},'alice').length,0);
-  const privateOrder=d.submit('bob',input({privateOrder:true,publicAcknowledged:false}));assert.equal(privateOrder.price,19.2);
-  assert.throws(()=>d.review(privateOrder.id,{revision:0,card:'私人卡',publish:true,name:'不能公开'}),/禁止公开/);
-  const ready=d.review(privateOrder.id,{revision:0,card:'私人卡',publish:false});assert.equal(ready.status,'已完成');assert.equal(d.cards().length,4);
-  const failing=d.submit('u',input());await assert.rejects(d.generate(failing.id,async()=>{throw new Error('断网');}),/断网/);assert.ok(d.order(failing.id).generationError);assert.equal(d.order(failing.id).generationStarted,0);assert.equal(d.orders('u')[0].card,'');
-  const lin=d.card('lin',true);d.saveCard({...lin,published:false});assert.throws(()=>d.download('alice','lin'),/下架/);assert.equal(d.cards().length,3);
-  store.close();const reopened=new Store(file);assert.equal(new Domain(reopened).orders('bob')[0].card,'私人卡');reopened.close();fs.rmSync(dir,{recursive:true,force:true});
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const Store=require('./store.cjs'),{Domain}=require('./domain.cjs'),{createApp}=require('./index.cjs');
+const config=require('../miniprogram/data/config'),bank=require('../miniprogram/data/questions');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+function sections(content='内容',id='basic'){return Object.fromEntries(require('../miniprogram/data/deliverables')[id].map(p=>[p.key,p.key==='persona'?content:'人工撰写的'+p.label]));}
+function input(id='basic',requestId='manual-demand-request-unique'){return {packageId:id,requestId,answers:Object.fromEntries(bank[id].map(q=>[q.id,['由设计师决定']])),publicationChoice:id==='private'?'hidden':'public'};}
+function quote(d,o,amount=12.8){return d.manage(o.id,{action:'quote',revision:o.revision,amount,deliveryAt:'2026-11-01T18:00:00+08:00',revisions:2,refundConditions:'未开始制作可协商全额退款，制作后按双方约定处理'});}
+test('三档独立价格、题库与报价快照、需求幂等及客户隔离',()=>{
+ const s=new Store(':memory:'),d=new Domain(s);try{
+  assert.equal(config.packages.length,4);assert.equal(bank.basic.length,50);assert.equal(bank.detailed.length,100);assert.equal(bank.private.length,100);
+  const o=d.submit('alice',{...input(),paymentStatus:'已人工核实',productionStatus:'已交付',price:0,owner:'bob'});
+  assert.equal(o.paymentStatus,'待确认');assert.equal(o.productionStatus,'待处理');assert.equal(o.quoteSnapshot.amount,12.8);assert.equal(o.questionSnapshot.length,50);assert.ok(o.questionVersion);assert.equal(d.orders('bob').length,0);assert.equal(d.submit('alice',input()).id,o.id);
+  const p=d.submit('bob',input('private'));assert.equal(p.price,null);assert.equal(p.privateOrder,true);
+  d.updatePrices({basic:null,detailed:22,private:40});assert.equal(d.order(o.id).quoteSnapshot.amount,12.8);assert.equal(d.submit('next',input()).price,null);assert.equal(d.getConfig().packages[2].price,40);
+  assert.throws(()=>d.updatePrices({basic:-1,detailed:null,private:null}),/价格/);
+  assert.throws(()=>d.submit('new',{...input(),answers:{}}),/选择/);
+ }finally{s.close();}
 });
-test('HTTP登录、管理员隔离、CSRF、上传、价格、客户订单与审核端到端',async()=>{
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'persona-http-'));const store=new Store(':memory:');
-  const env={DEMO_MODE:'false',ADMIN_PASSWORD:'synthetic-test-only-password',PUBLIC_ORIGIN:'https://test.example',MEDIA_DIR:dir};
-  const {server}=createApp({store,env,identity:async code=>code==='alice'?'alice':'bob',generator:async()=> '测试生成草稿'});
-  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
-  async function call(p,method='GET',body,headers={}){const res=await fetch(base+p,{method,headers:{'Content-Type':'application/json',...headers},...(body?{body:JSON.stringify(body)}:{})});return {status:res.status,data:await res.json(),cookie:res.headers.get('set-cookie')};}
-  try {
-    assert.equal((await call('/admin/api/state')).status,401);
-    assert.equal((await call('/admin/api/login','POST',{})).status,403);
-    assert.equal((await call('/admin/api/login','POST',{password:'wrong'},{Origin:env.PUBLIC_ORIGIN})).status,401);
-    const logged=await call('/admin/api/login','POST',{password:env.ADMIN_PASSWORD},{Origin:env.PUBLIC_ORIGIN});assert.equal(logged.status,200);assert.ok(logged.cookie.includes('HttpOnly')&&logged.cookie.includes('Secure'));
-    const adminHeaders={Origin:env.PUBLIC_ORIGIN,Cookie:logged.cookie.split(';')[0]};assert.equal((await call('/admin/api/state','GET',null,adminHeaders)).status,200);
-    assert.equal((await call('/admin/api/upload','POST',{data:Buffer.from('<svg/>').toString('base64')},adminHeaders)).status,400);
-    const alice=(await call('/api/login','POST',{code:'alice'})).data.token;const bob=(await call('/api/login','POST',{code:'bob'})).data.token;
-    const auth={Authorization:'Bearer '+alice};
-    assert.equal((await call('/api/orders','POST',input())).status,401);
-    const created=await call('/api/orders','POST',input(),auth);assert.equal(created.status,200);assert.equal(created.data.price,12.8);
-    assert.equal((await call('/api/orders','GET',null,{Authorization:'Bearer '+bob})).data.length,0);
-    assert.equal((await call('/admin/api/orders/'+created.data.id+'/generate','POST',{},auth)).status,403);
-    const generated=await call('/admin/api/orders/'+created.data.id+'/generate','POST',{},adminHeaders);assert.equal(generated.data.generated,'测试生成草稿');
-    const customer=(await call('/api/orders','GET',null,auth)).data[0];assert.equal(customer.card,'');assert.equal(customer.generated,undefined);
-    const reviewed=await call('/admin/api/orders/'+created.data.id+'/review','POST',{revision:generated.data.revision,card:'已审核卡',publish:false},adminHeaders);assert.equal(reviewed.status,200);
-    assert.equal((await call('/api/orders','GET',null,auth)).data[0].card,'已审核卡');
-    await call('/api/cards/lin/download','POST',{},auth);await call('/api/cards/lin/download','POST',{},auth);assert.equal((await call('/api/cards')).data.items.find(x=>x.id==='lin').downloads,1);
-    assert.equal((await call('/admin/api/logout','POST',{},adminHeaders)).status,200);assert.equal((await call('/admin/api/state','GET',null,adminHeaders)).status,401);
-  } finally {await new Promise(r=>server.close(r));store.close();fs.rmSync(dir,{recursive:true,force:true});}
+test('报价、收款核实、人工交付和退款独立流转，私人不可公开',async()=>{
+ const s=new Store(':memory:'),d=new Domain(s);try{
+  let o=d.submit('a',input());assert.throws(()=>d.manage(o.id,{action:'confirmReceipt',revision:0,amount:12.8}),/先确认/);
+  assert.throws(()=>d.review(o.id,{revision:0,card:'未付不能交付'}),/核实/);
+  o=quote(d,o);assert.equal(o.paymentStatus,'待付款');assert.equal(o.productionStatus,'待处理');assert.equal(o.quoteSnapshot.amount,12.8);
+  assert.throws(()=>d.manage(o.id,{action:'confirmReceipt',revision:o.revision,amount:1}),/金额/);
+  o=d.manage(o.id,{action:'confirmReceipt',revision:o.revision,amount:12.8});assert.equal(o.paymentStatus,'已人工核实');
+  o=d.manage(o.id,{action:'start',revision:o.revision});assert.equal(o.productionStatus,'制作中');
+  o=d.review(o.id,{revision:o.revision,sections:sections('经人工制作的成年人物卡'),publish:false});assert.equal(o.productionStatus,'已交付');assert.equal(o.paymentStatus,'已人工核实');assert.equal(d.orders('a')[0].card,o.card);assert.equal(d.orders('a')[0].audit,undefined);
+  assert.throws(()=>d.manage(o.id,{action:'start',revision:0}),/刷新/);
+  o=d.manage(o.id,{action:'refund',revision:o.revision,amount:12.8});assert.equal(o.paymentStatus,'已退款');assert.equal(o.productionStatus,'已取消');
+  let p=quote(d,d.submit('p',input('private')),42);p=d.manage(p.id,{action:'confirmReceipt',revision:p.revision,amount:42});assert.throws(()=>d.review(p.id,{revision:p.revision,card:'私人卡',publish:true}),/禁止公开/);
+  await assert.rejects(d.generate(o.id),/人工制作/);
+ }finally{s.close();}
 });
-test('自动队列先生成草稿不交付，日额度和失败状态控制重试',async()=>{
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'persona-queue-'));const store=new Store(':memory:');
-  const {server,domain,processQueue}=createApp({store,env:{DEMO_MODE:'true',MEDIA_DIR:dir,AUTO_GENERATE:'true',MAX_AUTO_GENERATIONS_PER_DAY:'1'}});
-  try {
-    const first=domain.submit('a',input());domain.submit('b',input());
-    await processQueue();assert.ok(domain.order(first.id).generated.includes('模拟'));assert.equal(domain.orders('a')[0].card,'');assert.equal(domain.order(first.id).status,'制作中');
-    await processQueue();assert.equal(domain.orders('b')[0].status,'待处理');
-  }finally{server.close();store.close();fs.rmSync(dir,{recursive:true,force:true});}
+test('真实模式HTTP管理员鉴权、客户不可核实收款、后台改价交付与客户领取',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'persona-manual-')),s=new Store(':memory:');const env={DEMO_MODE:'false',PUBLIC_ORIGIN:'https://test.example',ADMIN_PASSWORD:'synthetic-test-password',MEDIA_DIR:dir};
+ const {server}=createApp({store:s,env,identity:async code=>code});await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
+ async function request(p,method='GET',data,headers={}){const res=await fetch(base+p,{method,headers:{'Content-Type':'application/json',...headers},...(data?{body:JSON.stringify(data)}:{})});return {status:res.status,data:await res.json(),cookie:res.headers.get('set-cookie')};}
+ try{
+  const customer=(await request('/api/login','POST',{code:'customer'})).data.token,auth={Authorization:'Bearer '+customer};let o=(await request('/api/orders','POST',input(),auth)).data;
+  assert.equal((await request('/api/orders','GET',null,{Authorization:'Bearer '+(await request('/api/login','POST',{code:'other'})).data.token})).data.length,0);
+  assert.equal((await request('/admin/api/orders/'+o.id+'/manage','POST',{action:'confirmReceipt'}, {...auth,Origin:env.PUBLIC_ORIGIN})).status,401);
+  assert.equal((await request('/admin/api/prices','POST',{basic:1})).status,403);
+  const login=await request('/admin/api/login','POST',{password:env.ADMIN_PASSWORD},{Origin:env.PUBLIC_ORIGIN});const admin={Origin:env.PUBLIC_ORIGIN,Cookie:login.cookie.split(';')[0]};
+  assert.equal((await request('/admin/api/prices','POST',{basic:14,detailed:null,private:null},admin)).status,200);assert.equal((await request('/api/config')).data.packages[1].price,null);
+  o=(await request('/admin/api/orders/'+o.id+'/manage','POST',{action:'quote',revision:0,amount:12.8,deliveryAt:'2026-11-01T18:00:00+08:00',revisions:1,refundConditions:'双方私聊确认条件'},admin)).data;
+  o=(await request('/admin/api/orders/'+o.id+'/manage','POST',{action:'confirmReceipt',revision:o.revision,amount:12.8},admin)).data;
+  assert.equal(o.paymentStatus,'已人工核实');o=(await request('/admin/api/orders/'+o.id+'/review','POST',{revision:o.revision,sections:sections('人工完成的人物卡'),publish:false},admin)).data;
+  assert.equal(o.productionStatus,'已交付');const mine=(await request('/api/orders','GET',null,auth)).data[0];assert.equal(mine.card,'人工完成的人物卡');assert.equal(mine.quoteSnapshot.amount,12.8);assert.equal(mine.owner,undefined);
+ }finally{await new Promise(r=>server.close(r));s.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
-test('小程序远程适配器与HTTP后端联调：登录、收藏、断网重试幂等及审核交付',async()=>{
-  const vm=require('node:vm'),{createRequire}=require('node:module');
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'persona-client-')),store=new Store(':memory:');
-  const {server,domain}=createApp({store,env:{DEMO_MODE:'true',MEDIA_DIR:dir}});await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
-  const memory=new Map();let loseSubmitResponse=true;
-  const wx={getStorageSync:key=>memory.get(key),setStorageSync:(key,value)=>memory.set(key,structuredClone(value)),login:opts=>opts.success({code:'test-code'}),request:opts=>{
-    fetch(opts.url,{method:opts.method,headers:opts.header,...(opts.method==='GET'?{}:{body:JSON.stringify(opts.data)})}).then(async res=>{
-      const data=await res.json();if(loseSubmitResponse&&opts.method==='POST'&&opts.url.endsWith('/api/orders')){loseSubmitResponse=false;opts.fail();return;}opts.success({statusCode:res.status,data});
-    }).catch(()=>opts.fail());
-  }};
-  function load(relative,overrides={}){const filename=path.resolve(__dirname,'../miniprogram/services',relative),module={exports:{}};const native=createRequire(filename);vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,exports:module.exports,wx,require:name=>Object.hasOwn(overrides,name)?overrides[name]:native(name)},{filename});return module.exports;}
-  const remote=load('remote.js',{'../data/runtime':{apiBase:base}});const api=load('api.js',{'./remote':remote});
-  try {
-    assert.equal((await api.getPackages())[0].price,12.8);assert.equal((await api.getCards()).items.length,3);
-    await api.favoriteCard('lin',true);assert.equal((await api.getCards({favorites:true})).items.length,1);
-    const answers=input().answers;await assert.rejects(api.submitOrder('basic',answers,{publicAcknowledged:false}),/公开/);
-    await assert.rejects(api.submitOrder('basic',answers,{publicAcknowledged:true,requirements:'温柔'}),/网络/);
-    const order=await api.submitOrder('basic',answers,{publicAcknowledged:true,requirements:'温柔'});
-    assert.equal(store.list('orders').length,1);assert.equal(api.loadDraft('basic').orderId,order.id);
-    domain.review(order.id,{revision:0,card:'最终审核成品',publish:false});assert.equal((await api.listOrders())[0].card,'最终审核成品');
-  }finally{await new Promise(r=>server.close(r));store.close();fs.rmSync(dir,{recursive:true,force:true});}
+test('支付凭证归属、敏感图片私有、上传不改变付款，邀请人工核实分开计数',()=>{
+ const s=new Store(':memory:'),d=new Domain(s);try{
+ const code=d.loyalty.referral('host').code;d.loyalty.bind('customer',code);let o=d.submit('customer',input());
+ assert.throws(()=>d.submitEvidence('other',o.id,{note:'伪造'}),/不存在/);
+ assert.throws(()=>d.submitEvidence('customer',o.id,{image:Buffer.from('<svg/>').toString('base64')}),/支持/);
+ d.submitEvidence('customer',o.id,{note:'金额12.8，时间供核对',image:Buffer.from([137,80,78,71,13,10,26,10]).toString('base64')});
+ assert.equal(d.order(o.id).paymentStatus,'待确认');assert.equal(d.orders('customer')[0].evidence.status,'待管理员核对');assert.equal(d.orders('customer')[0].evidence.image,undefined);
+ assert.equal(d.referralReport()[0].manualVerified,0);o=quote(d,d.order(o.id));o=d.manage(o.id,{action:'confirmReceipt',revision:o.revision,amount:12.8});
+ const report=d.referralReport().find(r=>r.code===code);assert.equal(report.bound,1);assert.equal(report.manualVerified,1);assert.equal(report.providerVerified,0);assert.equal(report.rows[0].orderId,o.id);
+ assert.throws(()=>d.submitEvidence('customer',o.id,{note:'新的凭证'}),/不接受/);
+ d.manage(o.id,{action:'refund',revision:o.revision,amount:12.8});assert.equal(d.referralReport().find(r=>r.code===code).manualVerified,0);
+ }finally{s.close();}
 });
-test('超详细四份交付、方向标签与150题校验',async()=>{
-  const s=new Store(':memory:'),d=new Domain(s);
-  try{
-    const answers=Object.fromEntries(bank.ultra.map(q=>[q.id,['由设计师决定']]));assert.equal(bank.ultra.length,150);
-    const o=d.submit('u',input({packageId:'ultra',answers,relationship:'GL'}));assert.equal(o.price,68.8);assert.equal(o.relationship,'GL');
-    const generated=await d.generate(o.id,async()=>({card:'人物卡',biography:'人物生平',worldView:'世界规则',worldBackground:'历史背景'}));
-    assert.equal(d.orders('u')[0].generatedParts,undefined);assert.throws(()=>d.review(o.id,{revision:generated.revision,card:'人物卡',publish:false}),/文字内容/);
-    const reviewed=d.review(o.id,{revision:generated.revision,card:'人物卡',biography:'人物生平',worldView:'世界规则',worldBackground:'历史背景',publish:true,name:'成年角色',category:'奇幻',tag:'慢热 · 温柔',intro:'虚构设定'});
-    assert.equal(reviewed.worldView,'世界规则');assert.ok(d.cards({relationship:'GL'}).some(c=>c.card.includes('历史背景')));
-    assert.throws(()=>d.submit('x',input({relationship:'其他'})),/BG/);
-  }finally{s.close();}
+test('最终稿完整加入大厅，旧数据库新增一次，不覆盖管理员改动或下架',()=>{
+ const s=new Store(':memory:');try{
+ s.put('meta','seeded',true);s.put('cards','lin',{id:'lin',name:'管理员修改',published:false});
+ let d=new Domain(s);const card=d.cards({relationship:'BG',search:'裴砚声'})[0];assert.ok(card);assert.ok(card.card.includes('06 对话示例与开场'));assert.ok(card.card.includes('今天早餐有两个选择'));assert.equal(s.get('cards','lin').name,'管理员修改');assert.equal(s.get('cards','lin').published,false);
+ d.saveCard({...card,published:false});d=new Domain(s);assert.equal(d.cards({search:'裴砚声'}).length,0);assert.equal(s.list('cards').filter(c=>c.id===card.id).length,1);
+ }finally{s.close();}
 });
-test('重复邀请三人返款，去重、退款资格失效与模拟付款不计入',()=>{
-  const s=new Store(':memory:'),d=new Domain(s),l=d.loyalty;
-  function paid(owner,requestId){const o=d.submit(owner,input({requestId}));l.recordVerifiedPayment(o.id,{verified:true,transactionId:'tx-'+o.id,amountCents:1280,paidAt:Date.now()});return o;}
-  try{
-    const code=l.referral('host').code;const own1=paid('host','host-first-paid-order');const own2=paid('host','host-second-paid-order');
-    assert.throws(()=>l.bind('host',code),/自己/);
-    for(let i=0;i<6;i++){l.bind('invitee'+i,code);paid('invitee'+i,'invitee-first-paid-order');}
-    assert.equal(l.referral('host').availableCount,6);
-    const first=l.requestRebate('host',own1.id);assert.equal(first.amount,12.8);assert.equal(l.referral('host').availableCount,3);
-    assert.equal(l.requestRebate('host',own1.id).status,first.status);l.requestRebate('host',own2.id);assert.equal(l.referral('host').availableCount,0);
-    l.recordVerifiedRefund(own1.id,{verified:true,refundId:'refund-host-1',amountCents:1280});assert.equal(l.referral('host').rebates.find(r=>r.orderId===own1.id).status,'已退款');
-    const c=s.get('inviteCredits','invitee4');l.recordVerifiedRefund(c.orderId,{verified:true,refundId:'refund-invitee-4',amountCents:1280});assert.equal(l.referral('host').rebates.find(r=>r.orderId===own2.id).status,'资格失效，待复核');assert.equal(l.referral('host').availableCount,2);
-    assert.throws(()=>l.recordVerifiedPayment(own1.id,{verified:false,transactionId:'fake',amountCents:1280,paidAt:Date.now()}),/凭据/);
-    l.bind('demo-user',code);d.submit('demo-user',input());assert.equal(l.referral('host').count,5);
-    assert.throws(()=>l.bind('demo-user',l.referral('other').code),/其他/);
-  }finally{s.close();}
+test('明确公开选择：未选不能提交，仅自己可见不加价也不可发布，公开须审核交付',()=>{
+ const s=new Store(':memory:'),d=new Domain(s);try{
+  const noChoice=input();delete noChoice.publicationChoice;noChoice.publicAcknowledged=true;assert.throws(()=>d.submit('none',noChoice),/请选择公开/);
+  let hidden=d.submit('hidden',{...input(),publicationChoice:'hidden'});assert.equal(hidden.price,12.8);assert.equal(hidden.privateOrder,false);assert.equal(hidden.publicationConsent.choice,'hidden');
+  hidden=quote(d,hidden);hidden=d.manage(hidden.id,{action:'confirmReceipt',revision:hidden.revision,amount:12.8});
+  assert.throws(()=>d.review(hidden.id,{revision:hidden.revision,card:'不公开的成品',publish:true}),/不能发布/);
+  hidden=d.review(hidden.id,{revision:hidden.revision,sections:sections('仅本人可领'),publish:false});assert.equal(d.orders('hidden')[0].card,'仅本人可领');assert.ok(!d.cards().some(c=>c.orderId===hidden.id));
+  assert.throws(()=>d.submit('private',{...input('private'),publicationChoice:'public'}),/禁止公开/);
+  let visible=d.submit('visible',input());assert.ok(visible.publicationConsent.confirmedAt);assert.ok(!d.cards().some(c=>c.orderId===visible.id));visible=quote(d,visible);visible=d.manage(visible.id,{action:'confirmReceipt',revision:visible.revision,amount:12.8});
+  visible=d.review(visible.id,{revision:visible.revision,sections:sections('可公开成品'),publish:true,name:'公开角色',category:'都市',tag:'温柔',intro:'审核后成品'});assert.ok(d.cards().some(c=>c.orderId===visible.id));
+  const old=d.order(visible.id);delete old.publicationChoice;delete old.publicationConsent;s.put('orders',old.id,old);assert.throws(()=>d.review(old.id,{revision:old.revision,card:'旧状态',publish:true}),/不能发布/);
+ }finally{s.close();}
 });
-test('月卡五次、年卡八次任意普通定制与私人差价，会员月重置',async()=>{
-  const {monthAt}=require('./loyalty.cjs');const s=new Store(':memory:'),d=new Domain(s),l=d.loyalty;
-  function activate(owner,planId){const o=l.purchase(owner,planId,'member-purchase-request');l.recordVerifiedPayment(o.id,{verified:true,transactionId:'member-'+owner,amountCents:planId==='monthly'?5880:22880,paidAt:Date.now()});return o;}
-  try{
-    const draft=l.purchase('disabled','monthly','disabled-member-request');assert.equal(draft.payment,'disabled');assert.equal(l.membership('disabled').active,false);
-    activate('monthly','monthly');assert.equal(l.membership('monthly').remaining,5);
-    for(let i=0;i<5;i++)d.submit('monthly',input({requestId:'monthly-custom-request-'+i,useMembership:true}));assert.equal(l.membership('monthly').remaining,0);
-    assert.throws(()=>d.submit('monthly',input({requestId:'monthly-custom-request-six',useMembership:true})),/额度/);
-    activate('yearly','yearly');const ultraAnswers=Object.fromEntries(bank.ultra.map(q=>[q.id,['由设计师决定']]));const free=d.submit('yearly',input({packageId:'ultra',answers:ultraAnswers,requestId:'yearly-ultra-free-request',useMembership:true}));assert.equal(free.price,0);
-    assert.equal(l.membership('yearly').remaining,7);assert.equal(l.membership('yearly',monthAt(l.membership('yearly').expiresAt,-11)+1000).remaining,8);
-    const privateOrder=d.submit('yearly',input({requestId:'yearly-private-request',privateOrder:true,useMembership:true}));assert.equal(privateOrder.price,6.4);assert.equal(privateOrder.status,'待补差价');
-    await assert.rejects(d.generate(privateOrder.id,async()=> '不应生成'),/差价/);
-    l.recordVerifiedPayment(privateOrder.id,{verified:true,transactionId:'topup-yearly',amountCents:640,paidAt:Date.now()});assert.equal(d.order(privateOrder.id).status,'待处理');
-    assert.equal(l.membership('yearly').remaining,6);
-    assert.equal(new Date(monthAt(Date.UTC(2026,0,31),1)).toISOString().slice(0,10),'2026-02-28');assert.equal(new Date(monthAt(Date.UTC(2026,0,31),2)).toISOString().slice(0,10),'2026-03-31');
-  }finally{s.close();}
+test('150题真实分支变化、依赖清除、服务端拒绝旧分支答案与48.8报价',()=>{
+ const flow=require('../miniprogram/data/advanced-flow'),s=new Store(':memory:'),d=new Domain(s);try{
+  const answers={};for(let i=0;i<150;i++){const q=flow.build(answers)[i];answers[q.id]=[q.options[0]];}
+  const first=flow.build(answers);assert.equal(first.length,150);assert.equal(new Set(first.map(q=>q.id)).size,150);
+  const before=first[1].options;answers['a1-root']=['人生转型'];assert.notDeepEqual(flow.build(answers)[1].options,before);
+  assert.throws(()=>d.submit('advanced',{packageId:'advanced',requestId:'advanced-real-branch-request',answers,publicationChoice:'hidden'}),/选择/);
+  const untouched=answers['a2-follow'];flow.clearDescendants(answers,'a1-root');assert.equal(answers['a1-follow'],undefined);assert.equal(answers['a1-deep'],undefined);assert.deepEqual(answers['a2-follow'],untouched);
+  answers['a1-follow']=[flow.build(answers)[1].options[0]];answers['a1-deep']=[flow.build(answers)[2].options[0]];
+  const o=d.submit('advanced',{packageId:'advanced',requestId:'advanced-real-branch-request',answers,publicationChoice:'hidden'});assert.equal(o.price,48.8);assert.equal(o.questionVersion,'advanced-branch-150-v1');assert.ok(o.questionSnapshot[1].title.includes('人生转型'));
+ }finally{s.close();}
+});
+test('各档ZIP文件包完整性，缺项拒绝，下载权限限制为订单本人',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'persona-bundles-')),s=new Store(':memory:');const {server,domain}=createApp({store:s,env:{DEMO_MODE:'false',PUBLIC_ORIGIN:'https://example.test',ADMIN_PASSWORD:'synthetic-test-admin-password',MEDIA_DIR:dir},identity:async code=>code});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ try{
+  const schema=require('../miniprogram/data/deliverables');assert.equal(schema.basic.length,4);assert.equal(schema.detailed.length,8);assert.equal(schema.advanced.length,11);
+  let o=domain.submit('owner',input());o=quote(domain,o);o=domain.manage(o.id,{action:'confirmReceipt',revision:o.revision,amount:12.8});assert.throws(()=>domain.review(o.id,{revision:o.revision,sections:{persona:'只有人物卡'},publish:false}),/文字内容/);
+  o=domain.review(o.id,{revision:o.revision,sections:sections('完整人物设定'),publish:false});assert.equal(o.deliveryFormat,'zip-v1');assert.equal(o.deliverySchema.length,4);
+  const base='http://127.0.0.1:'+server.address().port;
+  async function token(code){return (await (await fetch(base+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})})).json()).token;}
+  const url=base+'/api/orders/'+o.id+'/bundle';assert.equal((await fetch(url)).status,401);assert.equal((await fetch(url,{headers:{Authorization:'Bearer '+await token('other')}})).status,404);
+  const res=await fetch(url,{headers:{Authorization:'Bearer '+await token('owner')}});assert.equal(res.status,200);assert.equal(res.headers.get('content-type'),'application/zip');const bytes=Buffer.from(await res.arrayBuffer());assert.equal(bytes.readUInt32LE(0),0x04034b50);assert.equal(bytes.readUInt16LE(bytes.length-22+10),7);assert.ok(bytes.includes(Buffer.from('完整整合稿')));assert.ok(bytes.includes(Buffer.from('性格与表达方式')));assert.ok(!bytes.includes(Buffer.from('支付凭证')) || bytes.includes(Buffer.from('不包含客户问卷')));
+ }finally{await new Promise(r=>server.close(r));s.close();fs.rmSync(dir,{recursive:true,force:true});}
 });

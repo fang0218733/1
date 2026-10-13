@@ -1303,4 +1303,4 @@ const extra = [
     ]
   }
 ];
-module.exports = { basic, detailed: basic.concat(extra), ultra: basic.concat(extra, require('./world-questions')) };
+module.exports = { basic, private: basic.concat(extra), detailed: basic.concat(extra), ultra: basic.concat(extra, require('./world-questions')) };

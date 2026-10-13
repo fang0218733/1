@@ -1,3 +1,5 @@
 .answer { padding: 24rpx; }
 .answer .section { font-size: 28rpx; margin: 12rpx 0; }
 .value { color: #587566; line-height: 1.7; }
+
+.publication-option { display:block; padding:24rpx; background:#f1f3ec; border-radius:18rpx; margin-top:20rpx; line-height:1.8; }

@@ -5,10 +5,11 @@
     "pages/questionnaire/index",
     "pages/summary/index",
     "pages/orders/index",
-    "pages/membership/index"
+    "pages/membership/index",
+    "pages/evidence/index"
   ],
   "window": {
-    "navigationBarTitleText": "知伴 · 人设定制",
+    "navigationBarTitleText": "yu伴 · 人设定制",
     "navigationBarBackgroundColor": "#f8f5f1",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f8f5f1"

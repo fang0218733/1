@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "check": "node scripts/check.cjs"
+    "check": "node scripts/check.cjs",
+    "test": "node scripts/test-flow.cjs && node --test server/test.cjs server/invitation-test.cjs server/backup-test.cjs",
+    "server:demo": "node server/demo.cjs",
+    "backup": "node server/backup.cjs",
+    "deploy:check": "node server/readiness.cjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   }
 }
