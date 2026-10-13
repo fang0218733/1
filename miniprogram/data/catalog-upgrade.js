@@ -4,7 +4,8 @@ function upgrade(old,source){
  if(old.catalogVersion===source.catalogVersion && (source.id!=='pei-yan-sheng-jiang-zhi-yi'||old.relationship==='BG'))return old;
  // Expand stock texts; preserve administrator-authored text. Pei's category is
  // explicitly corrected by the owner, while all other custom metadata remains.
- const stock=old.card===legacy[source.id] || old.card===source.card;
+ const replacingFixed=source.catalogVersion==='solo-character-v2'&&old.catalogVersion==='fixed-perspective-v1';
+ const stock=replacingFixed||old.card===legacy[source.id] || old.card===source.card;
  const result={...old,catalogVersion:source.catalogVersion};
  if(stock){Object.assign(result,source);result.cover=old.cover||'';result.published=old.published!==false;}
  if(source.id==='pei-yan-sheng-jiang-zhi-yi'){
