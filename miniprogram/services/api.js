@@ -27,7 +27,7 @@ module.exports = {
   backendEnabled: remote.enabled,
   ensureReferral: invitation.ensure,
   getMembership: () => remote.enabled ? remote.request('/api/membership','GET',{},true) : Promise.resolve({active:false,plans:config.memberships}),
-  getReferrals: () => remote.enabled ? remote.request('/api/referrals','GET',{},true) : Promise.resolve({code:'',count:0,availableCount:0,target:3,enabled:false,rebates:[],refundableOrders:[]}),
+  getReferrals: () => remote.enabled ? remote.request('/api/referrals','GET',{},true) : Promise.resolve({code:'',bound:0,manualVerified:0,count:0,availableCount:0,target:3,enabled:false,rebates:[],refundableOrders:[]}),
   requestRebate: orderId => remote.enabled ? remote.request('/api/referrals/rebate','POST',{orderId},true) : Promise.reject(new Error('本地演示不执行真实退款')),
   bindReferral: code => remote.enabled ? remote.request('/api/referrals/bind','POST',{code},true) : Promise.resolve({bound:false}),
   getCards: async (options = {}) => {
@@ -42,6 +42,10 @@ module.exports = {
   quote: id => getPackage(id).price,
   getPackages: () => remote.enabled ? remote.request('/api/config').then(c=>{currentPackages=c.packages;return c.packages;}) : Promise.resolve(config.packages),
   getIdentity: () => Promise.resolve({ mode: remote.enabled ? 'server' : 'local-demo', authenticated: remote.enabled && !!wx.getStorageSync('persona-session') }),
+  submitEvidence: async (id,input) => {
+    if(remote.enabled)return remote.request('/api/orders/'+id+'/evidence','POST',input,true);
+    const data=read(),o=data.orders.find(o=>o.id===id);if(!o)throw new Error('需求单不存在');if(!['待确认','待付款'].includes(o.paymentStatus))throw new Error('当前状态不能提交');o.evidence={submittedAt:new Date().toLocaleString(),status:'模拟提交，非真实付款核实',note:input.note,image:input.image};write(data);return o.evidence;
+  },
   listOrders: () => { if(remote.enabled)return remote.request('/api/orders','GET',{},true);seedOrders(); return Promise.resolve(read().orders); },
   submitOrder: async (id, answers, options = {}) => {
     if (!validAnswers(id, answers)) return Promise.reject(new Error('请完成所有题目'));

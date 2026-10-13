@@ -51,7 +51,25 @@ class Domain {
       if(input.useMembership===true)fail('当前人工确认流程不使用会员额度');this.s.put('meta','lastOrderTime',order.createdAt);this.s.put('orders',id,order); return this.customerOrder(order);
     });
   }
-  customerOrder(o) { const { owner,fingerprint,audit,generated,generatedParts,generationError,generationStarted, ...safe } = o; return safe; }
+  submitEvidence(user,id,input) {
+    return this.s.transaction(()=>{
+      const o=this.order(id);if(o.owner!==user)fail('需求单不存在',404);
+      if(!['待确认','待付款'].includes(o.paymentStatus)||o.productionStatus==='已取消')fail('当前状态不接受凭证');
+      const note=text(input.note||'',300,false),data=input.image||'';let mime='';
+      if(data){if(typeof data!=='string'||data.length>2800000||! /^[A-Za-z0-9+/]*={0,2}$/.test(data))fail('凭证图片无效');const b=Buffer.from(data,'base64');if(b.length>2*1024*1024)fail('凭证图片须小于2MB');if(b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))mime='image/png';else if(b[0]===255&&b[1]===216&&b[2]===255)mime='image/jpeg';else if(b.subarray(0,4).toString()==='RIFF'&&b.subarray(8,12).toString()==='WEBP')mime='image/webp';else fail('只支持PNG、JPEG或WebP');}
+      if(!note&&!data)fail('请提交截图或核对说明');
+      const receipt={orderId:id,note,image:data,mime,submittedAt:new Date().toISOString(),status:'待管理员核对'};
+      this.s.put('receipts',id,receipt);o.revision++;this.s.put('orders',id,o);return {submittedAt:receipt.submittedAt,status:receipt.status};
+    });
+  }
+  referralReport() {
+    return this.s.list('profiles').map(p=>{
+      const bindings=this.s.list('referralBindings').filter(b=>b.inviter===p.user);
+      const rows=bindings.map(b=>{const orders=this.s.list('orders').filter(o=>o.owner===b.user&&o.type!=='membership'&&!o.membershipId);const paid=orders.find(o=>o.paymentStatus==='已人工核实'&&o.agreedQuote&&o.agreedQuote.amount>0);return {customerId:this.key(b.user,'report').slice(0,12),boundAt:b.createdAt,orderId:paid?paid.id:orders[0]&&orders[0].id||'',state:paid?'已人工核实':orders.some(o=>o.paymentStatus==='已退款')?'已退款，不计入':'尚未核实付款'};});
+      return {code:p.code,bound:rows.length,manualVerified:rows.filter(r=>r.state==='已人工核实').length,rows,providerVerified:this.loyalty.referral(p.user).count};
+    });
+  }
+  customerOrder(o) { const { owner,fingerprint,audit,generated,generatedParts,generationError,generationStarted, ...safe } = o; const receipt=this.s.get('receipts',o.id);return {...safe,evidence:receipt?{submittedAt:receipt.submittedAt,status:receipt.status}:null}; }
   orders(user) { return this.s.list('orders').filter(o => o.owner === user).sort((a,b) => b.createdAt-a.createdAt).map(o => o.type==='membership'?this.loyalty.purchaseView(o):this.customerOrder(o)); }
   order(id) { const order = this.s.get('orders',id); if (!order) fail('订单不存在',404); return order; }
   getConfig() { const prices=this.s.get('meta','manualPrices')||{};return {...packages,paymentEnabled:false,paymentMode:'manual',packages:packages.packages.map(p=>({...p,price:Object.hasOwn(prices,p.id)?prices[p.id]:p.price}))}; }

@@ -5,6 +5,7 @@
 <view class="section">付款：{{item.paymentStatus || '历史状态待人工核对'}}</view><view class="section">制作：{{item.productionStatus || '历史状态待人工核对'}}</view>
 <view class="muted">提交时报价：{{item.quoteSnapshot ? (item.quoteSnapshot.amount == null ? '价格待确认' : '¥' + item.quoteSnapshot.amount) : '历史报价待核对'}}</view><view wx:if="{{item.agreedQuote}}" class="muted">双方约定报价：¥{{item.agreedQuote.amount}}</view>
 <view wx:if="{{item.terms.deliveryAt}}" class="notice">约定交付：{{item.terms.deliveryAt}}<view>修改次数：{{item.terms.revisions}}</view><view>退款条件：{{item.terms.refundConditions}}</view></view>
+<view wx:if="{{item.evidence}}" class="notice">凭证：{{item.evidence.status}} · {{item.evidence.submittedAt}}</view><button wx:if="{{item.paymentStatus === '待确认' || item.paymentStatus === '待付款'}}" class="secondary" bindtap="evidence" data-id="{{item.id}}">提交 / 更新支付凭证</button>
 <button class="secondary" bindtap="copyDemand" data-id="{{item.id}}">复制需求单，方便私聊核对</button>
 <view wx:if="{{item.productionStatus === '已交付'}}" class="persona">{{item.card}}</view><button wx:if="{{item.productionStatus === '已交付'}}" class="primary" bindtap="copy" data-id="{{item.id}}">领取并复制成品</button>
 </view><view wx:if="{{!orders.length}}" class="card muted">暂无需求单</view><view wx:if="{{error}}" class="error">{{error}}</view><button class="secondary" bindtap="home">前往定制</button></view>

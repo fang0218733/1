@@ -47,3 +47,16 @@ test('真实模式HTTP管理员鉴权、客户不可核实收款、后台改价�
   assert.equal(o.productionStatus,'已交付');const mine=(await request('/api/orders','GET',null,auth)).data[0];assert.equal(mine.card,'人工完成的人物卡');assert.equal(mine.quoteSnapshot.amount,12.8);assert.equal(mine.owner,undefined);
  }finally{await new Promise(r=>server.close(r));s.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+test('支付凭证归属、敏感图片私有、上传不改变付款，邀请人工核实分开计数',()=>{
+ const s=new Store(':memory:'),d=new Domain(s);try{
+ const code=d.loyalty.referral('host').code;d.loyalty.bind('customer',code);let o=d.submit('customer',input());
+ assert.throws(()=>d.submitEvidence('other',o.id,{note:'伪造'}),/不存在/);
+ assert.throws(()=>d.submitEvidence('customer',o.id,{image:Buffer.from('<svg/>').toString('base64')}),/支持/);
+ d.submitEvidence('customer',o.id,{note:'金额12.8，时间供核对',image:Buffer.from([137,80,78,71,13,10,26,10]).toString('base64')});
+ assert.equal(d.order(o.id).paymentStatus,'待确认');assert.equal(d.orders('customer')[0].evidence.status,'待管理员核对');assert.equal(d.orders('customer')[0].evidence.image,undefined);
+ assert.equal(d.referralReport()[0].manualVerified,0);o=quote(d,d.order(o.id));o=d.manage(o.id,{action:'confirmReceipt',revision:o.revision,amount:12.8});
+ const report=d.referralReport().find(r=>r.code===code);assert.equal(report.bound,1);assert.equal(report.manualVerified,1);assert.equal(report.providerVerified,0);assert.equal(report.rows[0].orderId,o.id);
+ assert.throws(()=>d.submitEvidence('customer',o.id,{note:'新的凭证'}),/不接受/);
+ d.manage(o.id,{action:'refund',revision:o.revision,amount:12.8});assert.equal(d.referralReport().find(r=>r.code===code).manualVerified,0);
+ }finally{s.close();}
+});

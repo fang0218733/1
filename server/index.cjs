@@ -40,7 +40,8 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
       if(adminRoute) {
         admin(req);
         if(p==='/admin/api/logout' && req.method==='POST') { const c=/(?:^|;\s*)persona_admin=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||''); if(c)sessions.delete(hash(c[1]));res.setHeader('Set-Cookie','persona_admin=; HttpOnly; SameSite=Strict; Path=/admin; Max-Age=0');return send({ok:true}); }
-        if(p==='/admin/api/state' && req.method==='GET') return send({demo,cards:domain.cards({},null,true),referrals:store.list('rebates'),memberships:store.list('memberships').map(m=>({...m,quota:loyalty.membership(m.owner)})),membershipOrders:store.list('orders').filter(o=>o.type==='membership'),orders:store.list('orders').filter(o=>o.type!=='membership').sort((a,b)=>b.createdAt-a.createdAt),questions:require('../miniprogram/data/questions'),config:domain.getConfig(),generationConfigured:false});
+        if(p==='/admin/api/state' && req.method==='GET') return send({demo,cards:domain.cards({},null,true),referrals:store.list('rebates'),memberships:store.list('memberships').map(m=>({...m,quota:loyalty.membership(m.owner)})),membershipOrders:store.list('orders').filter(o=>o.type==='membership'),orders:store.list('orders').filter(o=>o.type!=='membership').sort((a,b)=>b.createdAt-a.createdAt),questions:require('../miniprogram/data/questions'),invitationReport:domain.referralReport(),config:domain.getConfig(),generationConfigured:false});
+        const receiptMatch=/^\/admin\/api\/receipts\/([a-f0-9]{64})$/.exec(p);if(receiptMatch&&req.method==='GET'){const receipt=store.get('receipts',receiptMatch[1]);if(!receipt)fail('暂无凭证',404);return send(receipt);}
         if(p==='/admin/api/prices'&&req.method==='POST')return send(domain.updatePrices(await body(req)));
         if(p==='/admin/api/cards' && req.method==='POST') return send(domain.saveCard(await body(req)));
         if(p==='/admin/api/upload' && req.method==='POST') {
@@ -72,11 +73,12 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
       }
       const cardMatch=/^\/api\/cards\/([\w-]{1,80})\/(favorite|download)$/.exec(p);
       if(cardMatch && req.method==='POST') { const user=customer(req);rate(user);const data=await body(req,2000);return send(cardMatch[2]==='favorite'?domain.favorite(user,cardMatch[1],data.enabled===true):domain.download(user,cardMatch[1])); }
-      if(p==='/api/referrals' && req.method==='GET'){const user=customer(req);return send({...loyalty.referral(user),refundableOrders:domain.orders(user).filter(o=>o.payment==='paid'&&o.packageId==='basic'&&!o.privateOrder&&!store.get('rebates',o.id)).map(o=>({id:o.id,name:o.name,price:o.price,date:o.date}))});}
+      if(p==='/api/referrals' && req.method==='GET'){const user=customer(req);const summary=loyalty.referral(user),report=domain.referralReport().find(r=>r.code===summary.code);return send({...summary,bound:report?report.bound:0,manualVerified:report?report.manualVerified:0,refundableOrders:domain.orders(user).filter(o=>o.payment==='paid'&&o.packageId==='basic'&&!o.privateOrder&&!store.get('rebates',o.id)).map(o=>({id:o.id,name:o.name,price:o.price,date:o.date}))});}
       if(p==='/api/referrals/bind' && req.method==='POST'){const user=customer(req),data=await body(req,2000);return send(loyalty.bind(user,data.code));}
       if(p==='/api/referrals/rebate' && req.method==='POST'){customer(req);fail('真实支付和退款尚未接通，活动暂未开放',503);}
       if(p==='/api/membership' && req.method==='GET')return send(loyalty.membership(customer(req)));
       if(p==='/api/membership' && req.method==='POST'){fail('人工确认阶段暂不开放会员购买',503);const user=customer(req),data=await body(req,2000);return send(loyalty.purchase(user,data.planId,data.requestId));}
+      const evidenceMatch=/^\/api\/orders\/([a-f0-9]{64})\/evidence$/.exec(p);if(evidenceMatch&&req.method==='POST'){const user=customer(req);rate('evidence:'+user,10);return send(domain.submitEvidence(user,evidenceMatch[1],await body(req,2900000)));}
       if(p==='/api/orders' && req.method==='GET') return send(domain.orders(customer(req)));
       if(p==='/api/orders' && req.method==='POST') { const user=customer(req);rate('orders:'+user,10);return send(domain.submit(user,await body(req))); }
       fail('接口不存在',404);

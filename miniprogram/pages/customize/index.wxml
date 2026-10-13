@@ -1,5 +1,5 @@
 <view class="container">
-  <text class="eyebrow">知伴 · 专属定制</text><text class="title">把理想的陪伴，细细描绘</text>
+  <text class="eyebrow">yu伴 · 专属定制</text><text class="title">把理想的陪伴，细细描绘</text>
   <view class="subtitle">选择你的偏好，描绘专属角色。没想好的题目可跳过，交由设计师决定；最后也可补充具体要求。</view>
   <view class="notice">{{backendEnabled ? '提交需求单 · 私聊确认 · 人工制作交付' : '本地演示 · 不收款 · 草稿自动保存至本机'}}</view>
   <view class="section">专属定制 <text class="muted">MADE FOR YOU</text></view>
@@ -13,6 +13,7 @@
   <view wx:if="{{referralError}}" class="notice">{{referralError}}<button class="secondary" bindtap="dismissReferral">不参与本次邀请，继续定制</button></view>
   <view class="error" wx:if="{{error}}">{{error}}</view>
 
+  <button class="secondary" bindtap="membership">我的邀请记录 / 分享邀请</button>
   <button class="secondary" bindtap="orders">查看我的定制订单</button>
   <view class="notice">需求单不是付款凭证。收款方式与平台要求核实后再私聊确认，管理员核实后制作；私人定制不公开。</view>
 </view>
