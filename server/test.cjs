@@ -127,6 +127,15 @@ test('独立角色仅保留自己的人物档案，用户自由替代原另一�
  for(const c of cards.filter(c=>c.pairId)){assert.equal(c.name,c.modelRole);assert.equal(c.userRole,'自定义形象');assert.ok(c.card.includes('用户姓名、外貌、职业、性格、经历和表达方式均由用户自己塑造'));assert.ok(!c.card.includes('你就是故事中的'));}
  const old={...male,card:'旧固定人物代入稿',catalogVersion:'fixed-perspective-v1',published:false,cover:'保留封面'};const updated=upgrade(old,male);assert.equal(updated.card,male.card);assert.equal(updated.published,false);assert.equal(updated.cover,old.cover);
 });
-test('陈砚定稿可在男性角色中搜索与下载，已有目录新增一次',()=>{
- const source=require('../miniprogram/data/chenyan-card'),s=new Store(':memory:');try{s.put('meta','seeded',true);const d=new Domain(s);const found=d.cards({perspective:'male',search:'陈砚'});assert.equal(found.length,1);assert.equal(found[0].modelRole,'陈砚');assert.ok(found[0].card.includes('老城区「无声」纹身店'));assert.ok(found[0].card.includes('平时每次回复一到三句'));assert.equal(d.download('test-user',source.id).card,source.card);new Domain(s);assert.equal(s.list('cards').filter(c=>c.id===source.id).length,1);assert.equal(d.cards({perspective:'female',search:'陈砚'}).length,0);}finally{s.close();}
+test('付费卡正文隔离、订单幂等、收款授权及退款撤销',()=>{
+ const source=require('../miniprogram/data/chenyan-card'),s=new Store(':memory:');try{
+ const d=new Domain(s);assert.equal(source.card,'');assert.equal(source.price,2);
+ const card={...s.get('cards',source.id),card:'测试用私有人设正文，不能在未授权目录中出现。'};d.saveCard(card);
+ assert.equal(d.cards({access:'paid'},'alice')[0].card,'');assert.equal(d.cards({access:'free'}).some(c=>c.id===source.id),false);
+ assert.throws(()=>d.download('alice',source.id));
+ const order=d.requestCard('alice',source.id,'request-paid-000001');assert.equal(order.quoteSnapshot.amount,2);assert.equal(order.paymentStatus,'待付款');assert.equal(d.requestCard('alice',source.id,'request-paid-000001').id,order.id);
+ assert.throws(()=>d.manage(order.id,{action:'confirmReceipt',revision:0,amount:1}));
+ const paid=d.manage(order.id,{action:'confirmReceipt',revision:0,amount:2});assert.equal(paid.productionStatus,'已交付');assert.equal(d.download('alice',source.id).card,card.card);assert.equal(d.cards({access:'paid'},'bob')[0].card,'');assert.equal(d.orders('bob').length,0);
+ d.manage(order.id,{action:'refund',revision:1,amount:2});assert.throws(()=>d.download('alice',source.id));assert.equal(d.orders('alice')[0].card,'');new Domain(s);assert.equal(s.get('cards',source.id).card,card.card);
+ }finally{s.close();}
 });

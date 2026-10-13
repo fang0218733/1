@@ -18,9 +18,9 @@
   </view>
   <view class="notice">{{backendEnabled ? '问卷保存至服务端，仅用于私聊核对和人工制作；不收集支付密码或银行卡资料。' : '演示数据仅保存至本机。'}}请勿填写真实敏感信息。私人定制始终不公开。</view>
   <view class="card"><view class="section">成品公开范围</view>
-    <view wx:if="{{privateOrder}}" class="notice">私人定制固定仅自己可见，不能公开到免费大厅。</view>
+    <view wx:if="{{privateOrder}}" class="notice">私人定制固定仅自己可见，不能公开到角色大厅。</view>
     <radio-group wx:else bindchange="publication">
-      <label class="publication-option"><radio value="public" checked="{{publicationChoice === 'public'}}" disabled="{{submitted}}" color="#607f70"/>公开到免费大厅<view class="muted">同意管理员人工审核后发布最终成品，其他客户可以查看、复制和下载。问卷、凭证和具体要求不公开。</view></label>
+      <label class="publication-option"><radio value="public" checked="{{publicationChoice === 'public'}}" disabled="{{submitted}}" color="#607f70"/>公开到角色大厅<view class="muted">同意管理员人工审核后发布最终成品，其他客户可以查看、复制和下载。问卷、凭证和具体要求不公开。</view></label>
       <label class="publication-option"><radio value="hidden" checked="{{publicationChoice === 'hidden'}}" disabled="{{submitted}}" color="#607f70"/>仅自己可见<view class="muted">只在本人需求单领取，管理员不能发布到大厅；不因选择不公开而自动改套餐或加价。</view></label>
     </radio-group><view class="muted">提交前可修改选择。提交后授权随需求单保存，不由付款状态决定。</view>
   </view>
