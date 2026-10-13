@@ -114,9 +114,9 @@ test('完整示例卡结构、自由主控说明与旧BL分类修正，保留下
  const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards',pei.id,{...pei,relationship:'BL',published:true});const d=new Domain(s);assert.equal(d.cards({relationship:'BL',search:'裴砚声'}).length,0);assert.equal(d.cards({relationship:'BG',search:'裴砚声'}).length,1);}finally{s.close();}
 });
 test('八张独立角色、性别与BG/GL筛选、用户自由形象和主线保留',()=>{
- const cards=require('../miniprogram/data/free-cards');assert.equal(cards.length,8);assert.equal(new Set(cards.map(c=>c.id)).size,8);assert.equal(cards.filter(c=>c.perspective==='male').length,3);assert.equal(cards.filter(c=>c.perspective==='female').length,5);
+ const cards=require('../miniprogram/data/free-cards').filter(c=>c.pairId);assert.equal(cards.length,8);assert.equal(new Set(cards.map(c=>c.id)).size,8);assert.equal(cards.filter(c=>c.perspective==='male').length,3);assert.equal(cards.filter(c=>c.perspective==='female').length,5);
  for(const c of cards){assert.ok(c.card.includes('用户以自己的形象取代原故事另一方'));assert.equal(c.name,c.modelRole);assert.ok(c.card.includes('模型只扮演'+c.modelRole));assert.ok(c.card.includes('默认开场'));assert.ok(!/自行选择|交换主控|切换主控|更改主控/.test(c.card));}
- const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards','lin',{id:'lin',card:'旧成对卡',published:true});s.put('favorites','old-favorite',{user:'u',cardId:'lin'});const d=new Domain(s);assert.equal(d.cards().length,8);assert.ok(!d.cards().some(c=>c.id==='lin'));assert.equal(d.cards({relationship:'GL',perspective:'male'}).length,0);assert.equal(d.cards({relationship:'GL',perspective:'female'}).length,2);assert.equal(d.cards({relationship:'BG',perspective:'male'}).length,3);assert.equal(d.cards({favorites:true},'u').length,2);assert.equal(s.get('cards','lin').retired,true);assert.ok(s.get('catalogBackups','lin-before-split'));}
+ const s=new Store(':memory:');try{s.put('meta','seeded',true);s.put('cards','lin',{id:'lin',card:'旧成对卡',published:true});s.put('favorites','old-favorite',{user:'u',cardId:'lin'});const d=new Domain(s);assert.equal(d.cards().length,9);assert.ok(!d.cards().some(c=>c.id==='lin'));assert.equal(d.cards({relationship:'GL',perspective:'male'}).length,0);assert.equal(d.cards({relationship:'GL',perspective:'female'}).length,2);assert.equal(d.cards({relationship:'BG',perspective:'male'}).length,4);assert.equal(d.cards({favorites:true},'u').length,2);assert.equal(s.get('cards','lin').retired,true);assert.ok(s.get('catalogBackups','lin-before-split'));}
  finally{s.close();}
 });
 test('独立角色仅保留自己的人物档案，用户自由替代原另一方，升级旧固定代入缓存',()=>{
@@ -124,6 +124,9 @@ test('独立角色仅保留自己的人物档案，用户自由替代原另一�
  const male=cards.find(c=>c.name==='裴砚声'),female=cards.find(c=>c.name==='姜知宜');assert.equal(male.characterGender,'male');assert.equal(female.characterGender,'female');
  assert.ok(male.card.includes('17岁成为练习生'));assert.ok(!male.card.includes('03 {{user}}的身份与内心'));assert.ok(!male.card.includes('姜知宜'));
  assert.ok(female.card.includes('收入不算高但能独立生活'));assert.ok(!female.card.includes('17岁成为练习生'));assert.ok(!female.card.includes('裴砚声'));
- for(const c of cards){assert.equal(c.name,c.modelRole);assert.equal(c.userRole,'自定义形象');assert.ok(c.card.includes('用户姓名、外貌、职业、性格、经历和表达方式均由用户自己塑造'));assert.ok(!c.card.includes('你就是故事中的'));}
+ for(const c of cards.filter(c=>c.pairId)){assert.equal(c.name,c.modelRole);assert.equal(c.userRole,'自定义形象');assert.ok(c.card.includes('用户姓名、外貌、职业、性格、经历和表达方式均由用户自己塑造'));assert.ok(!c.card.includes('你就是故事中的'));}
  const old={...male,card:'旧固定人物代入稿',catalogVersion:'fixed-perspective-v1',published:false,cover:'保留封面'};const updated=upgrade(old,male);assert.equal(updated.card,male.card);assert.equal(updated.published,false);assert.equal(updated.cover,old.cover);
+});
+test('陈砚定稿可在男性角色中搜索与下载，已有目录新增一次',()=>{
+ const source=require('../miniprogram/data/chenyan-card'),s=new Store(':memory:');try{s.put('meta','seeded',true);const d=new Domain(s);const found=d.cards({perspective:'male',search:'陈砚'});assert.equal(found.length,1);assert.equal(found[0].modelRole,'陈砚');assert.ok(found[0].card.includes('老城区「无声」纹身店'));assert.ok(found[0].card.includes('平时每次回复一到三句'));assert.equal(d.download('test-user',source.id).card,source.card);new Domain(s);assert.equal(s.list('cards').filter(c=>c.id===source.id).length,1);assert.equal(d.cards({perspective:'female',search:'陈砚'}).length,0);}finally{s.close();}
 });

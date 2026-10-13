@@ -44,4 +44,4 @@ module.exports=pairs.flatMap(pair=>profiles[pair.id].map((profile,index)=>({
  symbol:profile.name.slice(0,1),tag:pair.tag+' · '+(profile.gender==='male'?'男性角色':'女性角色'),
  intro:'与'+profile.name+'互动，以你自己的形象进入原故事关系，不必扮演原作另一方。',
  catalogVersion:'solo-character-v2',card:soloStory(pair,profile,index)
-})));
+}))).concat(require('./chenyan-card'));
