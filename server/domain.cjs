@@ -10,19 +10,19 @@ class Domain {
     const legacySeeded=!!store.get('meta','seeded');
     store.transaction(()=>{
       seeds.forEach((c,i)=>{
-        const key='catalog-import-'+c.id;
-        if(store.get('meta',key))return;
-        // Preserve existing edits/downlisting and legacy deletions; add new catalog cards once.
-        if(!store.get('cards',c.id)&&(!legacySeeded||i>=3))store.put('cards',c.id,{...c,category:c.category||['治愈','活泼','沉稳'][i]||'其他',cover:'',published:true,createdAt:Date.now()+i});
+        const key='catalog-import-'+c.id,old=store.get('cards',c.id);
+        if(old){const updated=require('../miniprogram/data/catalog-upgrade')(old,c);if(updated!==old){store.put('catalogBackups',c.id+'-'+c.catalogVersion,old);store.put('cards',c.id,updated);}}
+        else if(!store.get('meta',key)&&(!legacySeeded||c.pairId||i>=3))store.put('cards',c.id,{...c,cover:'',published:!c.pairId||store.get('cards',c.pairId)?.retired||store.get('cards',c.pairId)?.published!==false,createdAt:Date.now()+i});
         store.put('meta',key,true);
       });
+      for(const pair of require('../miniprogram/data/paired-cards')){const old=store.get('cards',pair.id);if(old&&!old.retired){store.put('catalogBackups',pair.id+'-before-split',old);store.put('cards',pair.id,{...old,published:false,retired:true});}for(const fav of store.list('favorites').filter(f=>f.cardId===pair.id)){const migrated='split-favorites-'+this.key(fav.user,pair.id);if(store.get('meta',migrated))continue;for(const child of seeds.filter(c=>c.pairId===pair.id))store.put('favorites',this.key(fav.user,child.id),{user:fav.user,cardId:child.id});store.put('meta',migrated,true);}}
       store.put('meta','seeded',true);
     });
   }
   cardStats(card) { return { ...card, downloads: this.s.list('downloads').filter(x => x.cardId === card.id).length, favorites: this.s.list('favorites').filter(x => x.cardId === card.id).length }; }
-  cards({ search = '', category = '', sort = 'new', favorites = false, relationship = '' } = {}, user, admin = false) {
+  cards({ search = '', category = '', sort = 'new', favorites = false, relationship = '', perspective = '' } = {}, user, admin = false) {
     search = String(search).slice(0,100); category = String(category).slice(0,40);
-    let list = this.s.list('cards').filter(c => (admin || c.published) && (!relationship || (c.relationship || 'BG') === relationship) && (!category || c.category === category) && (!search || [c.name,c.tag,c.intro].join(' ').includes(search)));
+    let list = this.s.list('cards').filter(c => !c.retired && (admin || c.published) && (!perspective||c.perspective===perspective) && (!relationship || (c.relationship || 'BG') === relationship) && (!category || c.category === category) && (!search || [c.name,c.tag,c.intro].join(' ').includes(search)));
     list = list.map(c => ({ ...this.cardStats(c), favorite: !!(user && this.s.get('favorites', this.key(user,c.id))) }));
     if (favorites) list = list.filter(c => c.favorite);
     list.sort((a,b) => sort === 'hot' ? (b.downloads*2+b.favorites)-(a.downloads*2+a.favorites) || b.createdAt-a.createdAt : b.createdAt-a.createdAt);
@@ -40,7 +40,7 @@ class Domain {
     if (old && old.orderId) fail('订单公开卡只能通过订单审核更新');
     const cover = text(input.cover || '',200,false);
     if (cover && !/^\/media\/[a-f0-9]{32}\.(png|jpg|webp)$/.test(cover)) fail('请使用后台上传的封面');
-    return this.s.put('cards',id,{ id,relationship:this.relationship(input.relationship),name:text(input.name,60),tag:text(input.tag,100),intro:text(input.intro,300),category:text(input.category,40),card:text(input.card,12000),cover,symbol:(input.name || '').slice(0,1),published:!!input.published,createdAt:old ? old.createdAt : Date.now() });
+    return this.s.put('cards',id,{ ...old,id,relationship:this.relationship(input.relationship),name:text(input.name,60),tag:text(input.tag,100),intro:text(input.intro,300),category:text(input.category,40),card:text(input.card,12000),cover,symbol:(input.name || '').slice(0,1),published:!!input.published,createdAt:old ? old.createdAt : Date.now() });
   }
   submit(user,input) {
     const p = this.getConfig().packages.find(p => p.id === input.packageId); if (!p) fail('套餐不存在');
