@@ -5,7 +5,20 @@ const seeds = require('../miniprogram/data/free-cards');
 function fail(message, status = 400) { const error = new Error(message); error.status = status; throw error; }
 function text(value, max, required = true) { if (typeof value !== 'string' || value.length > max || (required && !value.trim())) fail('文字内容为空或超出长度限制'); return value.trim(); }
 class Domain {
-  constructor(store) { this.s = store;this.loyalty=new (require('./loyalty.cjs').Loyalty)(store); if (!store.get('meta', 'seeded')) store.transaction(() => { seeds.forEach((c,i) => store.put('cards', c.id, { ...c, category: ['治愈','活泼','沉稳'][i], cover: '', published: true, createdAt: Date.now()+i })); store.put('meta','seeded',true); }); }
+  constructor(store) {
+    this.s=store;this.loyalty=new (require('./loyalty.cjs').Loyalty)(store);
+    const legacySeeded=!!store.get('meta','seeded');
+    store.transaction(()=>{
+      seeds.forEach((c,i)=>{
+        const key='catalog-import-'+c.id;
+        if(store.get('meta',key))return;
+        // Preserve existing edits/downlisting and legacy deletions; add new catalog cards once.
+        if(!store.get('cards',c.id)&&(!legacySeeded||i>=3))store.put('cards',c.id,{...c,category:c.category||['治愈','活泼','沉稳'][i]||'其他',cover:'',published:true,createdAt:Date.now()+i});
+        store.put('meta',key,true);
+      });
+      store.put('meta','seeded',true);
+    });
+  }
   cardStats(card) { return { ...card, downloads: this.s.list('downloads').filter(x => x.cardId === card.id).length, favorites: this.s.list('favorites').filter(x => x.cardId === card.id).length }; }
   cards({ search = '', category = '', sort = 'new', favorites = false, relationship = '' } = {}, user, admin = false) {
     search = String(search).slice(0,100); category = String(category).slice(0,40);

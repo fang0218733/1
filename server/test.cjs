@@ -60,3 +60,10 @@ test('支付凭证归属、敏感图片私有、上传不改变付款，邀请�
  d.manage(o.id,{action:'refund',revision:o.revision,amount:12.8});assert.equal(d.referralReport().find(r=>r.code===code).manualVerified,0);
  }finally{s.close();}
 });
+test('最终稿完整加入大厅，旧数据库新增一次，不覆盖管理员改动或下架',()=>{
+ const s=new Store(':memory:');try{
+ s.put('meta','seeded',true);s.put('cards','lin',{id:'lin',name:'管理员修改',published:false});
+ let d=new Domain(s);const card=d.cards({relationship:'BG',search:'裴砚声'})[0];assert.ok(card);assert.ok(card.card.includes('06 对话示例与开场'));assert.ok(card.card.includes('今天早餐有两个选择'));assert.equal(s.get('cards','lin').name,'管理员修改');assert.equal(s.get('cards','lin').published,false);
+ d.saveCard({...card,published:false});d=new Domain(s);assert.equal(d.cards({search:'裴砚声'}).length,0);assert.equal(s.list('cards').filter(c=>c.id===card.id).length,1);
+ }finally{s.close();}
+});

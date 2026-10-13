@@ -21,7 +21,13 @@ function seedOrders() {
   data.orders = [{ id: 'DEMO-COMPLETE', packageId: 'basic', name: '50题完整版', price: config.packages[0].price, paymentStatus:'已人工核实',productionStatus:'已交付',status:'已交付',questionVersion:config.questionVersion,quoteSnapshot:{amount:config.packages[0].price},date: '演示样例', demo: true, card }, { id: 'DEMO-WORKING', packageId: 'detailed', name: '100题精细版', price: config.packages[1].price, paymentStatus:'已人工核实',productionStatus:'制作中',status:'制作中',questionVersion:config.questionVersion,quoteSnapshot:{amount:config.packages[1].price},date: '演示样例', demo: true, card: '' }].concat(data.orders);
   data.seeded = true; write(data);
 }
-function gallery() { return wx.getStorageSync('persona-gallery-v1') || { favorites: [], downloads: [], cards: freeCards.map((c,i) => ({ ...c, category: ['治愈','活泼','沉稳'][i], cover: '', published: true })) }; }
+function gallery() {
+  const data=wx.getStorageSync('persona-gallery-v1') || {favorites:[],downloads:[],cards:[]};
+  let changed=false;
+  freeCards.forEach((c,i)=>{if(!data.cards.some(old=>old.id===c.id)){data.cards.push({...c,category:c.category||['治愈','活泼','沉稳'][i]||'其他',cover:'',published:true});changed=true;}});
+  if(changed)saveGallery(data);
+  return data;
+}
 function saveGallery(data) { wx.setStorageSync('persona-gallery-v1',data); }
 module.exports = {
   backendEnabled: remote.enabled,
