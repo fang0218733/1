@@ -68,9 +68,10 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
         return send({token:t,mode:demo?'demo':'live'});
       }
       if(p==='/api/cards' && req.method==='GET') {
-        const user=optionalCustomer(req);const list=domain.cards({perspective:url.searchParams.get('perspective')||'',search:url.searchParams.get('search')||'',category:url.searchParams.get('category')||'',relationship:url.searchParams.get('relationship')||'',sort:url.searchParams.get('sort')||'new',favorites:url.searchParams.get('favorites')==='true'},user);
+        const user=optionalCustomer(req);const list=domain.cards({access:url.searchParams.get('access')||'',perspective:url.searchParams.get('perspective')||'',search:url.searchParams.get('search')||'',category:url.searchParams.get('category')||'',relationship:url.searchParams.get('relationship')||'',sort:url.searchParams.get('sort')||'new',favorites:url.searchParams.get('favorites')==='true'},user);
         const page=Math.max(0,Math.min(Number(url.searchParams.get('page'))||0,10000));return send({items:list.slice(page*20,page*20+20),hasMore:list.length>(page+1)*20,categories:[...new Set(domain.cards().map(c=>c.category))]});
       }
+      const buyMatch=/^\/api\/cards\/([\w-]{1,80})\/purchase$/.exec(p);if(buyMatch&&req.method==='POST'){const user=customer(req);rate('card-buy:'+user,10);const input=await body(req,2000);return send(domain.requestCard(user,buyMatch[1],input.requestId));}
       const cardMatch=/^\/api\/cards\/([\w-]{1,80})\/(favorite|download)$/.exec(p);
       if(cardMatch && req.method==='POST') { const user=customer(req);rate(user);const data=await body(req,2000);return send(cardMatch[2]==='favorite'?domain.favorite(user,cardMatch[1],data.enabled===true):domain.download(user,cardMatch[1])); }
       if(p==='/api/referrals' && req.method==='GET'){const user=customer(req);const summary=loyalty.referral(user),report=domain.referralReport().find(r=>r.code===summary.code);return send({...summary,bound:report?report.bound:0,manualVerified:report?report.manualVerified:0,refundableOrders:domain.orders(user).filter(o=>o.payment==='paid'&&o.packageId==='basic'&&!o.privateOrder&&!store.get('rebates',o.id)).map(o=>({id:o.id,name:o.name,price:o.price,date:o.date}))});}

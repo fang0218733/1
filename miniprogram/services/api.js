@@ -39,12 +39,13 @@ module.exports = {
   bindReferral: code => remote.enabled ? remote.request('/api/referrals/bind','POST',{code},true) : Promise.resolve({bound:false}),
   getCards: async (options = {}) => {
     if (remote.enabled) { const params=Object.keys(options).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(options[k])).join('&'); const result=await remote.request('/api/cards?'+params,'GET',{},!!options.favorites);result.items=result.items.map(c=>({...c,cover:c.cover?remote.base+c.cover:''}));return result; }
-    const data=gallery();let items=data.cards.filter(c=>c.published && (!options.perspective||c.perspective===options.perspective) && (!options.relationship||(c.relationship||'BG')===options.relationship)&&(!options.category||c.category===options.category) && (!options.search||[c.name,c.tag,c.intro].join(' ').includes(options.search))).map(c=>({...c, favorite:data.favorites.includes(c.id),downloads:data.downloads.includes(c.id)?1:0,favorites:data.favorites.includes(c.id)?1:0}));
+    const data=gallery();let items=data.cards.filter(c=>c.published && (!options.access||(options.access==='paid'?c.isPaid:!c.isPaid)) && (!options.perspective||c.perspective===options.perspective) && (!options.relationship||(c.relationship||'BG')===options.relationship)&&(!options.category||c.category===options.category) && (!options.search||[c.name,c.tag,c.intro].join(' ').includes(options.search))).map(c=>({...c,isPaid:!!c.isPaid,price:c.isPaid?c.price:0,locked:!!c.isPaid,card:c.isPaid?'':c.card, favorite:data.favorites.includes(c.id),downloads:data.downloads.includes(c.id)?1:0,favorites:data.favorites.includes(c.id)?1:0}));
     if(options.favorites)items=items.filter(c=>c.favorite);if(options.sort==='hot')items.sort((a,b)=>(b.downloads*2+b.favorites)-(a.downloads*2+a.favorites));
     const page=Number(options.page)||0;return {items:items.slice(page*20,page*20+20),hasMore:items.length>(page+1)*20,categories:[...new Set(data.cards.filter(c=>c.published).map(c=>c.category))]};
   },
+  requestCard: async id => {if(!remote.enabled)throw new Error('本地模拟不收款，请部署后台后核实并授权');let key=wx.getStorageSync('card-purchase-'+id);if(!key){key='card-'+Date.now()+'-'+Math.random().toString(36).slice(2);wx.setStorageSync('card-purchase-'+id,key);}return remote.request('/api/cards/'+id+'/purchase','POST',{requestId:key},true);},
   favoriteCard: async (id,enabled) => { if(remote.enabled)return remote.request('/api/cards/'+id+'/favorite','POST',{enabled},true);const data=gallery();data.favorites=data.favorites.filter(x=>x!==id);if(enabled)data.favorites.push(id);saveGallery(data);return {favorite:enabled}; },
-  downloadCard: async id => { if(remote.enabled)return remote.request('/api/cards/'+id+'/download','POST',{},true);const data=gallery();const c=data.cards.find(c=>c.id===id&&c.published);if(!c)throw new Error('角色已下架');if(!data.downloads.includes(id))data.downloads.push(id);saveGallery(data);return {card:c.card,downloads:1}; },
+  downloadCard: async id => { if(remote.enabled)return remote.request('/api/cards/'+id+'/download','POST',{},true);const data=gallery();const c=data.cards.find(c=>c.id===id&&c.published);if(!c)throw new Error('角色已下架');if(c.isPaid)throw new Error('本地模拟不开放真实付费下载');if(!data.downloads.includes(id))data.downloads.push(id);saveGallery(data);return {card:c.card,downloads:1}; },
   getPackage, getQuestions, clearDependentAnswers, loadDraft, saveDraft, validAnswers,
   quote: id => getPackage(id).price,
   getPackages: () => remote.enabled ? remote.request('/api/config').then(c=>{currentPackages=c.packages;return c.packages;}) : Promise.resolve(config.packages),
@@ -61,7 +62,7 @@ module.exports = {
     options={...options,privateOrder:id==='private'};
     if(options.privateOrder&&options.publicationChoice==='public')throw new Error('私人定制禁止公开');
     options.publicationChoice=options.privateOrder?'hidden':options.publicationChoice;
-    if(!['public','hidden'].includes(options.publicationChoice))throw new Error('请选择公开到免费大厅或仅自己可见');
+    if(!['public','hidden'].includes(options.publicationChoice))throw new Error('请选择公开到角色大厅或仅自己可见');
     if(remote.enabled) { await invitation.ensure();const draft=loadDraft(id);if(!draft.requestId){draft.requestId='request-'+Date.now()+'-'+Math.random().toString(36).slice(2);saveDraft(id,draft);}return remote.request('/api/orders','POST',{packageId:id,answers,...options,requestId:draft.requestId},true).then(order=>{saveDraft(id,{orderId:order.id});return order;}); }
     if(options.useMembership)return Promise.reject(new Error('本地演示没有真实会员额度'));
     const p = getPackage(id), data = read();
