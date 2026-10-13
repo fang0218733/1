@@ -19,7 +19,7 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
   function customer(req) { const match=/^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization||''); const session=match&&store.get('sessions',hash(match[1])); if(!session || session.expires<Date.now()) fail('请重新登录',401); return session.user; }
   function optionalCustomer(req) { return req.headers.authorization?customer(req):null; }
   function admin(req) { const cookie=/(?:^|;\s*)persona_admin=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||''); const session=cookie&&sessions.get(hash(cookie[1])); if(!session || session.expires<Date.now()) fail('请登录管理后台',401); }
-  async function body(req,max=200000) { let size=0,chunks=[]; for await(const chunk of req) { size+=chunk.length; if(size>max) fail('请求内容过大',413); chunks.push(chunk); } try { return JSON.parse(Buffer.concat(chunks).toString()||'{}'); } catch(e) { fail('请求格式错误'); } }
+  async function body(req,max=350000) { let size=0,chunks=[]; for await(const chunk of req) { size+=chunk.length; if(size>max) fail('请求内容过大',413); chunks.push(chunk); } try { return JSON.parse(Buffer.concat(chunks).toString()||'{}'); } catch(e) { fail('请求格式错误'); } }
   async function processQueue() { /* Manual production only; never auto-start before receipt verification. */ }
   const server=http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cache-Control','no-store');
@@ -40,7 +40,7 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
       if(adminRoute) {
         admin(req);
         if(p==='/admin/api/logout' && req.method==='POST') { const c=/(?:^|;\s*)persona_admin=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||''); if(c)sessions.delete(hash(c[1]));res.setHeader('Set-Cookie','persona_admin=; HttpOnly; SameSite=Strict; Path=/admin; Max-Age=0');return send({ok:true}); }
-        if(p==='/admin/api/state' && req.method==='GET') return send({demo,cards:domain.cards({},null,true),referrals:store.list('rebates'),memberships:store.list('memberships').map(m=>({...m,quota:loyalty.membership(m.owner)})),membershipOrders:store.list('orders').filter(o=>o.type==='membership'),orders:store.list('orders').filter(o=>o.type!=='membership').sort((a,b)=>b.createdAt-a.createdAt),questions:require('../miniprogram/data/questions'),invitationReport:domain.referralReport(),config:domain.getConfig(),generationConfigured:false});
+        if(p==='/admin/api/state' && req.method==='GET') return send({demo,cards:domain.cards({},null,true),referrals:store.list('rebates'),memberships:store.list('memberships').map(m=>({...m,quota:loyalty.membership(m.owner)})),membershipOrders:store.list('orders').filter(o=>o.type==='membership'),orders:store.list('orders').filter(o=>o.type!=='membership').sort((a,b)=>b.createdAt-a.createdAt),deliverySchemas:require('../miniprogram/data/deliverables'),questions:require('../miniprogram/data/questions'),invitationReport:domain.referralReport(),config:domain.getConfig(),generationConfigured:false});
         const receiptMatch=/^\/admin\/api\/receipts\/([a-f0-9]{64})$/.exec(p);if(receiptMatch&&req.method==='GET'){const receipt=store.get('receipts',receiptMatch[1]);if(!receipt)fail('暂无凭证',404);return send(receipt);}
         if(p==='/admin/api/prices'&&req.method==='POST')return send(domain.updatePrices(await body(req)));
         if(p==='/admin/api/cards' && req.method==='POST') return send(domain.saveCard(await body(req)));
@@ -78,6 +78,7 @@ function createApp({ store,env=process.env,identity=code=>providers.wechatIdenti
       if(p==='/api/referrals/rebate' && req.method==='POST'){customer(req);fail('真实支付和退款尚未接通，活动暂未开放',503);}
       if(p==='/api/membership' && req.method==='GET')return send(loyalty.membership(customer(req)));
       if(p==='/api/membership' && req.method==='POST'){fail('人工确认阶段暂不开放会员购买',503);const user=customer(req),data=await body(req,2000);return send(loyalty.purchase(user,data.planId,data.requestId));}
+      const bundleMatch=/^\/api\/orders\/([a-f0-9]{64})\/bundle$/.exec(p);if(bundleMatch&&req.method==='GET'){const user=customer(req),o=domain.order(bundleMatch[1]);if(o.owner!==user)fail('需求单不存在',404);if(o.productionStatus!=='已交付'||!o.deliverySections)fail('文件包尚未交付',409);const data=require('./bundle.cjs').buildBundle(o);res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':'attachment; filename=yu-ban-delivery.zip'});return res.end(data);}
       const evidenceMatch=/^\/api\/orders\/([a-f0-9]{64})\/evidence$/.exec(p);if(evidenceMatch&&req.method==='POST'){const user=customer(req);rate('evidence:'+user,10);return send(domain.submitEvidence(user,evidenceMatch[1],await body(req,2900000)));}
       if(p==='/api/orders' && req.method==='GET') return send(domain.orders(customer(req)));
       if(p==='/api/orders' && req.method==='POST') { const user=customer(req);rate('orders:'+user,10);return send(domain.submit(user,await body(req))); }

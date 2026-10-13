@@ -3,7 +3,7 @@ Page({
   data: { backendEnabled: api.backendEnabled, publicationChoice:'',relationship: 'BG', relationships: ['BG','GL','BL'], rows: [], complete: false, busy: false, error: '' },
   onLoad(options) { this.id = options.package; },
   onShow() {
-    try { const p = api.getPackage(this.id), draft = api.loadDraft(this.id); this.answers = draft.answers; const rows = api.getQuestions(this.id).map((q, index) => ({ id: q.id, index, title: q.title, category: q.category, answer: (this.answers[q.id] || []).join('、') || '尚未选择', missing: !(this.answers[q.id] || []).length })); this.setData({ rows, package: p, complete: api.validAnswers(this.id, this.answers), relationship: draft.relationship || 'BG',requirements: draft.requirements || '', privateOrder:this.id==='private', price: api.quote(this.id, !!draft.privateOrder), publicationChoice:this.id==='private'?'hidden':draft.publicationChoice||'', submitted: !!draft.orderId }); }
+    try { const p = api.getPackage(this.id), draft = api.loadDraft(this.id); this.answers = draft.answers; const rows = api.getQuestions(this.id,this.answers).map((q, index) => ({ id: q.id, index, title: q.title, category: q.category, answer: (this.answers[q.id] || []).join('、') || '尚未选择', missing: !(this.answers[q.id] || []).length })); this.setData({ rows, package: p, complete: api.validAnswers(this.id, this.answers), relationship: draft.relationship || 'BG',requirements: draft.requirements || '', privateOrder:this.id==='private', price: api.quote(this.id, !!draft.privateOrder), publicationChoice:this.id==='private'?'hidden':draft.publicationChoice||'', submitted: !!draft.orderId }); }
     catch (err) { this.setData({ error: '读取失败，请返回首页重试' }); }
 
   },

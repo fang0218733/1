@@ -7,8 +7,8 @@
     <view class="badge">{{item.count}} 个选择，描绘你的理想角色</view>
     <view class="section">{{item.name}}</view>
     <view class="subtitle">{{item.description}}</view><view class="deliverables"><text wx:for="{{item.deliverables}}" wx:for-item="part" wx:key="*this" class="badge">{{part}}</text></view>
-    <view class="price">{{item.price === null ? '价格待确认' : '¥' + item.price}} <text class="muted">报价参考 · 提交后私聊核对</text></view>
-    <button class="primary" bindtap="begin" disabled="{{busy}}" loading="{{busy}}" data-id="{{item.id}}">开始 / 继续定制</button>
+    <view class="price">{{item.price === null ? '价格待确认' : '¥' + item.price}} <text class="muted">套餐价 · 最终金额私聊确认</text></view>
+    <view class="notice">交付方式：完整ZIP文件包，含整合稿及分章文件。</view><button class="primary" bindtap="begin" disabled="{{busy}}" loading="{{busy}}" data-id="{{item.id}}">开始 / 继续定制</button>
   </view>
   <view wx:if="{{referralError}}" class="notice">{{referralError}}<button class="secondary" bindtap="dismissReferral">不参与本次邀请，继续定制</button></view>
   <view class="error" wx:if="{{error}}">{{error}}</view>

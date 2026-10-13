@@ -9,9 +9,10 @@ const KEY = 'persona-demo-v1';
 function read() { return wx.getStorageSync(KEY) || { drafts: {}, orders: [] }; }
 function write(value) { wx.setStorageSync(KEY, value); }
 function getPackage(id) { const p = currentPackages.find(p => p.id === id); if (!p) throw new Error('套餐不存在'); return p; }
-function getQuestions(id) { getPackage(id); return banks[id]; }
+function getQuestions(id,answers={}) { getPackage(id); return id==='advanced'?require('../data/advanced-flow').build(answers):banks[id]; }
+function clearDependentAnswers(id,answers,questionId){if(id==='advanced')require('../data/advanced-flow').clearDescendants(answers,questionId);}
 function validAnswers(id, answers) {
-  return getQuestions(id).every(q => Array.isArray(answers[q.id]) && answers[q.id].length > 0 && answers[q.id].every(v => q.options.includes(v)) && (q.multiple || answers[q.id].length === 1) && (!answers[q.id].includes('由设计师决定') || answers[q.id].length === 1));
+  return getQuestions(id,answers).every(q => Array.isArray(answers[q.id]) && answers[q.id].length > 0 && answers[q.id].every(v => q.options.includes(v)) && (q.multiple || answers[q.id].length === 1) && (!answers[q.id].includes('由设计师决定') || answers[q.id].length === 1));
 }
 function loadDraft(id) { getPackage(id); return read().drafts[id] || { answers: {}, index: 0 }; }
 function saveDraft(id, draft) { getPackage(id); const data = read(); data.drafts[id] = Object.assign({}, data.drafts[id] || {}, draft); write(data); }
@@ -44,7 +45,7 @@ module.exports = {
   },
   favoriteCard: async (id,enabled) => { if(remote.enabled)return remote.request('/api/cards/'+id+'/favorite','POST',{enabled},true);const data=gallery();data.favorites=data.favorites.filter(x=>x!==id);if(enabled)data.favorites.push(id);saveGallery(data);return {favorite:enabled}; },
   downloadCard: async id => { if(remote.enabled)return remote.request('/api/cards/'+id+'/download','POST',{},true);const data=gallery();const c=data.cards.find(c=>c.id===id&&c.published);if(!c)throw new Error('角色已下架');if(!data.downloads.includes(id))data.downloads.push(id);saveGallery(data);return {card:c.card,downloads:1}; },
-  getPackage, getQuestions, loadDraft, saveDraft, validAnswers,
+  getPackage, getQuestions, clearDependentAnswers, loadDraft, saveDraft, validAnswers,
   quote: id => getPackage(id).price,
   getPackages: () => remote.enabled ? remote.request('/api/config').then(c=>{currentPackages=c.packages;return c.packages;}) : Promise.resolve(config.packages),
   getIdentity: () => Promise.resolve({ mode: remote.enabled ? 'server' : 'local-demo', authenticated: remote.enabled && !!wx.getStorageSync('persona-session') }),
@@ -52,6 +53,7 @@ module.exports = {
     if(remote.enabled)return remote.request('/api/orders/'+id+'/evidence','POST',input,true);
     const data=read(),o=data.orders.find(o=>o.id===id);if(!o)throw new Error('需求单不存在');if(!['待确认','待付款'].includes(o.paymentStatus))throw new Error('当前状态不能提交');o.evidence={submittedAt:new Date().toLocaleString(),status:'模拟提交，非真实付款核实',note:input.note,image:input.image};write(data);return o.evidence;
   },
+  downloadBundle: id => remote.enabled?remote.downloadBundle(id):Promise.reject(new Error('本地模拟暂无真实交付文件，需部署后台并人工交付')),
   listOrders: () => { if(remote.enabled)return remote.request('/api/orders','GET',{},true);seedOrders(); return Promise.resolve(read().orders); },
   submitOrder: async (id, answers, options = {}) => {
     if (!validAnswers(id, answers)) return Promise.reject(new Error('请完成所有题目'));
@@ -65,7 +67,7 @@ module.exports = {
     const p = getPackage(id), data = read();
     const draft = data.drafts[id];
     if (draft && draft.orderId) return Promise.resolve(data.orders.find(o => o.id === draft.orderId));
-    const order = { id: 'DEMO-' + Date.now() + '-' + Math.random().toString(36).slice(2,10), packageId: id, name: p.name, price:p.price,quoteSnapshot:{amount:p.price,currency:'CNY',capturedAt:new Date().toISOString()},questionVersion:config.questionVersion,questionSnapshot:banks[id],paymentStatus:'待确认',productionStatus:'待处理',paymentMode:'manual',terms:{deliveryAt:'',revisions:null,refundConditions:''}, relationship: options.relationship || 'BG', privateOrder: !!options.privateOrder, publicationChoice:options.publicationChoice,publicationConsent:{choice:options.publicationChoice,version:'publication-choice-v2',confirmedAt:new Date().toISOString()},publicAcknowledged:options.publicationChoice==='public', requirements: (options.requirements || '').trim(), status: '待确认需求单', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
+    const order = { id: 'DEMO-' + Date.now() + '-' + Math.random().toString(36).slice(2,10), packageId: id, name: p.name, price:p.price,quoteSnapshot:{amount:p.price,currency:'CNY',capturedAt:new Date().toISOString()},questionVersion:id==='advanced'?config.advancedVersion:config.questionVersion,questionSnapshot:getQuestions(id,answers),paymentStatus:'待确认',productionStatus:'待处理',paymentMode:'manual',terms:{deliveryAt:'',revisions:null,refundConditions:''}, relationship: options.relationship || 'BG', privateOrder: !!options.privateOrder, publicationChoice:options.publicationChoice,publicationConsent:{choice:options.publicationChoice,version:'publication-choice-v2',confirmedAt:new Date().toISOString()},publicAcknowledged:options.publicationChoice==='public', requirements: (options.requirements || '').trim(), status: '待确认需求单', date: new Date().toLocaleString(), demo: true, answers: JSON.parse(JSON.stringify(answers)), card: '' };
     data.orders.unshift(order); data.drafts[id] = { answers: order.answers, index: 0, privateOrder: order.privateOrder, requirements: order.requirements, publicationChoice:order.publicationChoice,publicAcknowledged: order.publicAcknowledged, orderId: order.id }; write(data); return Promise.resolve(order);
   },
   clearDraft: id => { const data = read(); delete data.drafts[id]; write(data); }
